@@ -77,4 +77,14 @@ The homework environment is a single Docker host, so I researched the
 multi-host behavior rather than presenting a single-host bridge test as an
 overlay demonstration.
 
-![Docker Networking terminal evidence](evidence/docker-networking-output.svg)
+## Headless Chromium screenshots
+
+| Apache using host networking | Bind mount before editing |
+| --- | --- |
+| ![Apache host-network page](evidence/screenshots/host-network-apache.png) | ![Initial bind-mounted page](evidence/screenshots/bind-mount-before.png) |
+
+The updated page below was captured without restarting Nginx:
+
+![Updated bind-mounted page](evidence/screenshots/bind-mount-after.png)
+
+![Docker network and volume terminal evidence](evidence/screenshots/docker-terminal.png)

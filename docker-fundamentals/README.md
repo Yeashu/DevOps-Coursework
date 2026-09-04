@@ -47,4 +47,16 @@ The application code is copied into an image during `docker build`. Each
 publishes its web port. The complete build and HTTP verification transcript is
 in [`evidence/docker-fundamentals-output.txt`](evidence/docker-fundamentals-output.txt).
 
-![Docker Fundamentals terminal evidence](evidence/docker-fundamentals-output.svg)
+## Headless Chromium screenshots
+
+These PNGs were captured from the running containers with headless Chromium.
+
+| Node.js | Python | Java |
+| --- | --- | --- |
+| ![Node.js page](evidence/screenshots/nodejs.png) | ![Python page](evidence/screenshots/python.png) | ![Java page](evidence/screenshots/java.png) |
+
+| Apache | React | Nginx |
+| --- | --- | --- |
+| ![Apache page](evidence/screenshots/apache.png) | ![React page](evidence/screenshots/react.png) | ![Nginx page](evidence/screenshots/nginx.png) |
+
+![Docker build and ps terminal evidence](evidence/screenshots/docker-terminal.png)

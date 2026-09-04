@@ -38,4 +38,8 @@ runtimes, ports, and HTTP output are distinct, and each was verified with
 Real build, run, page, and `docker ps` results:
 [`evidence/docker-images-output.txt`](evidence/docker-images-output.txt).
 
-![Docker Images terminal evidence](evidence/docker-images-output.svg)
+## Headless Chromium screenshots
+
+![Multi-stage application on port 8080](evidence/screenshots/multi-stage-app.png)
+
+![Multi-stage build and docker ps terminal evidence](evidence/screenshots/docker-terminal.png)
