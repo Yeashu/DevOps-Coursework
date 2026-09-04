@@ -26,7 +26,8 @@ done
 docker run -d --name coursework-frontend --network frontend-net alpine:3.22 sleep 1d
 docker network connect app-net coursework-frontend
 
-docker run -d --name coursework-backend --network app-net alpine:3.22 sleep 1d
+docker run -d --name coursework-backend --network app-net alpine:3.22 \
+  sh -c "while true; do printf 'HTTP/1.1 200 OK\r\nContent-Length: 18\r\n\r\nHello from backend' | nc -l -p 8080; done"
 docker network connect database-net coursework-backend
 
 docker run -d --name coursework-database --network database-net \
@@ -42,13 +43,17 @@ docker inspect coursework-database --format '{{range $name, $_ := .NetworkSettin
 
 echo
 echo "Frontend to backend (expected success):"
-docker exec coursework-frontend ping -c 2 coursework-backend
+docker exec coursework-frontend wget -qO- http://coursework-backend:8080
 echo
 echo "Backend to database (expected success):"
-docker exec coursework-backend ping -c 2 coursework-database
+for _ in {1..30}; do
+  docker exec coursework-backend nc -z -w 2 coursework-database 3306 && break
+  sleep 1
+done
+docker exec coursework-backend nc -z -v -w 2 coursework-database 3306
 echo
 echo "Frontend to database (expected isolation):"
-if docker exec coursework-frontend ping -c 1 -W 1 coursework-database; then
+if docker exec coursework-frontend nc -z -w 2 coursework-database 3306; then
   echo "ERROR: isolated containers unexpectedly connected"
   exit 1
 else
