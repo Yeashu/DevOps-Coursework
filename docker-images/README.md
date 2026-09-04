@@ -37,3 +37,5 @@ runtimes, ports, and HTTP output are distinct, and each was verified with
 
 Real build, run, page, and `docker ps` results:
 [`evidence/docker-images-output.txt`](evidence/docker-images-output.txt).
+
+![Docker Images terminal evidence](evidence/docker-images-output.svg)

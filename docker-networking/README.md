@@ -71,3 +71,5 @@ Sources:
 The homework environment is a single Docker host, so I researched the
 multi-host behavior rather than presenting a single-host bridge test as an
 overlay demonstration.
+
+![Docker Networking terminal evidence](evidence/docker-networking-output.svg)

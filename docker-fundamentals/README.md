@@ -46,3 +46,5 @@ The application code is copied into an image during `docker build`. Each
 `docker run -d` starts an isolated container and `-p host:container`
 publishes its web port. The complete build and HTTP verification transcript is
 in [`evidence/docker-fundamentals-output.txt`](evidence/docker-fundamentals-output.txt).
+
+![Docker Fundamentals terminal evidence](evidence/docker-fundamentals-output.svg)

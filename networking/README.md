@@ -27,3 +27,5 @@ I would first check local addressing and routes with `ip address` and
 `ip route`, then test reachability, DNS, the destination port, HTTP, and
 finally packet capture. This narrows the failing layer without starting with
 the most invasive tool.
+
+![Networking terminal evidence](evidence/networking-output.svg)

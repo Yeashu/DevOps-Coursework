@@ -26,6 +26,8 @@ Enter an output file name: processes.txt
 The complete real execution is saved in
 [`evidence/system-info-output.txt`](evidence/system-info-output.txt).
 
+![Shell script terminal evidence](evidence/system-info-output.svg)
+
 ## What I learned
 
 - Quoted variables prevent spaces and wildcard characters in input from being

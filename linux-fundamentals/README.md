@@ -74,3 +74,5 @@ command filters entries for one service and `-f` follows new entries.
 | Help | `man command`, `command --help` |
 
 Full practice output: [`evidence/linux-output.txt`](evidence/linux-output.txt).
+
+![Linux terminal evidence](evidence/linux-output.svg)
