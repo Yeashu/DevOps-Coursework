@@ -14,7 +14,7 @@ linux_output="$repo_root/linux-fundamentals/evidence/linux-output.txt"
   date --iso-8601=seconds
   echo
   echo "=== Soft link and hard link ==="
-  cd "$work_dir"
+  cd "$work_dir" || exit
   rm -f original.txt soft-link.txt hard-link.txt
   printf 'DevOps link practice\n' > original.txt
   ln -s original.txt soft-link.txt
@@ -65,7 +65,7 @@ linux_output="$repo_root/linux-fundamentals/evidence/linux-output.txt"
 
 shell_output="$repo_root/shell-scripting/evidence/system-info-output.txt"
 (
-  cd "$repo_root/shell-scripting"
+  cd "$repo_root/shell-scripting" || exit
   rm -rf system-info-output
   printf 'system-info-output\nprocesses.txt\n' | ./system-info.sh
   echo
