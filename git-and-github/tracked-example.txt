@@ -1,1 +1,2 @@
 Initial tracked content for the git commit exercise.
+This tracked change is committed with git commit -a -m.
