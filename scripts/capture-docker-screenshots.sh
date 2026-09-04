@@ -37,6 +37,14 @@ screenshot() {
     --browser chromium --viewport-size=1280,720 --full-page "$url" "/work/$output"
 }
 
+terminal_screenshot() {
+  local url="$1"
+  local output="$2"
+  echo "Chromium terminal screenshot: $url -> $output"
+  docker exec coursework-browser timeout 30 npx -y playwright@1.55.0 screenshot \
+    --browser chromium --viewport-size=1500,2600 "$url" "/work/$output"
+}
+
 docker run -d --name capture-node -p 3001:3000 coursework-nodejs >/dev/null
 docker run -d --name capture-python -p 5001:5000 coursework-python >/dev/null
 docker run -d --name capture-java -p 8081:8080 coursework-java >/dev/null
@@ -90,11 +98,11 @@ screenshot http://localhost:8090 docker-networking/evidence/screenshots/bind-mou
 bind_container_after="$(docker inspect capture-bind-nginx --format '{{.Id}}')"
 test "$bind_container_before" = "$bind_container_after"
 
-screenshot file:///work/.evidence-work/screenshots/docker-fundamentals-terminal.svg \
+terminal_screenshot file:///work/.evidence-work/screenshots/docker-fundamentals-terminal.svg \
   docker-fundamentals/evidence/screenshots/docker-terminal.png
-screenshot file:///work/.evidence-work/screenshots/docker-images-terminal.svg \
+terminal_screenshot file:///work/.evidence-work/screenshots/docker-images-terminal.svg \
   docker-images/evidence/screenshots/docker-terminal.png
-screenshot file:///work/.evidence-work/screenshots/docker-networking-terminal.svg \
+terminal_screenshot file:///work/.evidence-work/screenshots/docker-networking-terminal.svg \
   docker-networking/evidence/screenshots/docker-terminal.png
 
 file "$repo_root"/docker-*/evidence/screenshots/*.png
