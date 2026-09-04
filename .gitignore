@@ -1,3 +1,5 @@
 .evidence-work/
+__pycache__/
+*.pyc
 processes.txt
 system-info-output/
