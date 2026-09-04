@@ -32,6 +32,11 @@ coursework-database
 The three networks are user-defined bridge networks. Unlike Docker's default
 bridge, they provide automatic container-name DNS resolution.
 
+The Codespace combines Docker's nftables backend with a stale legacy
+`FORWARD DROP` rule. The demo temporarily changes only that legacy policy to
+`ACCEPT`, then restores its original value during cleanup. Docker's own
+nftables isolation rules remain active throughout.
+
 ## 2. Host network
 
 ```bash

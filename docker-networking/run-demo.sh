@@ -10,13 +10,30 @@ containers=(
   coursework-bind-nginx
 )
 networks=(frontend-net app-net database-net)
+legacy_forward_policy=""
 
 cleanup() {
   docker rm -f "${containers[@]}" >/dev/null 2>&1 || true
   docker network rm "${networks[@]}" >/dev/null 2>&1 || true
+  if [[ -n "$legacy_forward_policy" ]]; then
+    sudo iptables-legacy -P FORWARD "$legacy_forward_policy"
+  fi
 }
 trap cleanup EXIT
 cleanup
+
+# Docker CE 29 uses the nftables backend, but this Codespace image also has a
+# stale legacy FORWARD policy. Temporarily make that legacy policy permissive
+# so it does not drop packets already accepted by Docker's nftables rules.
+if command -v iptables-legacy >/dev/null 2>&1; then
+  legacy_forward_policy="$(sudo iptables-legacy -S FORWARD | awk '/^-P FORWARD / {print $3}')"
+  if [[ "$legacy_forward_policy" == "DROP" ]]; then
+    echo "Temporarily changing the stale iptables-legacy FORWARD policy to ACCEPT."
+    sudo iptables-legacy -P FORWARD ACCEPT
+  else
+    legacy_forward_policy=""
+  fi
+fi
 
 echo "=== Three-network container topology ==="
 for network in "${networks[@]}"; do
