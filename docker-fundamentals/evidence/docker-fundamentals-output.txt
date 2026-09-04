@@ -1,26 +1,26 @@
 $ date --iso-8601=seconds
-2026-09-04T15:54:19+00:00
+2026-09-04T16:23:33+00:00
 $ docker version
 Docker client 29.8.0, server 29.8.0
 
 $ docker build -t coursework-nodejs ./nodejs-app
-sha256:15321417300f95404337f5762f7d2a0a3c5e6ce48a85b7419df9b7843cd5bc52
-8940444d54d10c04803a77ae0e602c64e06c083d67c67beeaf3c6f37376220aa
+sha256:6caae09abbdd87e879c1d5690acedc9419e58d1c0a86f6ee08cc90fb4135bec8
+12e097dba1b714de5b4d99175f4d4caf7684658efab8edff08c356c76e5f3875
 Node.js response:
 <h1>Hello World from Node.js!</h1>
 $ docker build -t coursework-python ./python-app
-sha256:04bbb001ef7def8c2462dbdae308d7ebd115ccccbc366f8e79c29a3b9b416099
-03d47ef5858b9fc982faa2eb86fa8fd50534769a54a9d43b7b38e5d7f9eb4e4b
+sha256:3c87b9467fe32f1d6bd224f0aa11cfda07369866ba04e27f37a7f40a2c1294e1
+407c77ce729857aa7eb116f58813e33b279b06b588729f1478d41f057cbd0c19
 Python response:
 <h1>Hello World from Python!</h1>
 $ docker build -t coursework-java ./java-app
-sha256:9d7d26da2655f38ac2b79919011d179038aacd36d19b1225124f3e27ba8bdfa5
-b2686e5d8d07b50a6e2e3a6fddd5f50f44f27dc714af64cdc9acfdcb65695b26
+sha256:e576d166e46f4e488998b4bb9cf1d1709f84dbfae39cb689c7adb87c838e5a7d
+e188b8f6ae730d84d67710d187f854a11e1c99f90192af6ed8283131b7945096
 Java response:
 <h1>Hello World from Java!</h1>
 $ docker build -t coursework-apache ./Apache-app
-sha256:42e8f396518b115184426b1da9a98aab7a611464da2e042aca237c024851e97f
-ecc5fcc5c8ac020a2cea2998a485931c8be19659beee699f0d2470d9fe2de8c5
+sha256:23941a33642195f0570bbec94242029645bd0291cf66b475fe9fa70dc11da315
+15079bc3288cf93b483d2513fc7c67bb6a3c1f7602295bdbd81649097bbedde0
 Apache response:
 <!doctype html>
 <html lang="en">
@@ -29,8 +29,8 @@ Apache response:
 </html>
 
 $ docker build -t coursework-react ./React-app
-sha256:676feb041f097df2f4616bbd8ffac45a2e6a66d77fd4df1b19e57d41f00ed708
-e4e3d272b0c7f071518a560443b27b448de240efafc091509a4a8f28f8485bf6
+sha256:493966ba7b3e6c1101c3fab15699099bd50afcbdd4f03f2457b70db6c6b21ac3
+6cef4a5c5114889076762578dd2da01a29982d587becdbb5f98679876f2aa3b2
 React response:
 <!doctype html>
 <html lang="en">
@@ -40,8 +40,8 @@ React response:
 </html>
 
 $ docker build -t coursework-nginx ./nginx-app
-sha256:2c570e0ced4a2062732b2a5257091c8e78e03af8db704e8c2334222b063356b8
-20665592f50098df8760c990a7cf8c05993fc23c38785acca438216f94198082
+sha256:6a5ef21b631eeb306eac8bf60d3ab58804bcc2c81c0eac64ede2eca47aeb7f66
+c57bf97c37b79e82ad7c519064b08659f2ee95528a53f9a6a2d15d285b173e00
 Nginx response:
 <!doctype html>
 <html lang="en">

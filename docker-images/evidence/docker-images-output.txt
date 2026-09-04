@@ -1,8 +1,8 @@
 $ date --iso-8601=seconds
-2026-09-04T15:55:49+00:00
+2026-09-04T16:25:17+00:00
 $ docker build -t coursework-multi-stage ./multi-stage-app
-sha256:1ababbae95faf3b4d681aa01096c821efd88058665b2cb59c3947c0371ebfcc6
-6dce61d5071a9dcae57ad9b66c3284c0c0b1012913662bc6c082cb706259297c
+sha256:e8d090222521217690fc2f7657561d01511e64fc8521d87eee2139cb0a15bdd3
+0b34a475885f6320735a753d8e13a1ad1b6a63cff8bd3d05f0f30f5a17e357de
 $ curl --fail http://localhost:8080
 <h1>Hello World from Docker multi-stage build</h1>
 $ docker ps --filter name=multi-stage-app

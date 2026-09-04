@@ -1,11 +1,56 @@
 Temporarily changing the stale iptables-legacy FORWARD policy to ACCEPT.
 === Three-network container topology ===
-818bf448b07a4f35c680f9e818472bcb51347dfb72b3d24df6f9157600116787
-59a2f6681f677360fe31687b40deba15704f51dde0f66ce7c6c00b9d78e4063b
-2f9361703fa8907cab6ebd30dead6d4aa7ccc83d201fd8dbb941b23cfd3b08c5
-c2f50b433a8b175315c56461f9512589b1a28eed067ff052bed7d505694d23ab
-6f39def041e70ef0c666e670f41afec5a70fca150afbbfd9cf5445843b4aa0e2
-faf083c04d5092e8ac2b87bfd8d14d809f04ed1796e74275a8ab511653e4a0a0
+3c7e06947843864188c77d8dfd2c8c9423a7955db8cadec95dca878bb7144873
+276fbf89e2143f437ef1822eff1ed95c27991e5559fc5211867493404ae7d815
+defc64da4aaf36709d8c7f85d95d112d1d0459890458b3ccbe370c2c59b97d9a
+Unable to find image 'alpine:3.22' locally
+3.22: Pulling from library/alpine
+f7ee36c9aa34: Pulling fs layer
+f7ee36c9aa34: Download complete
+4ee6343e28a9: Download complete
+f7ee36c9aa34: Pull complete
+28abb80ea162: Download complete
+Digest: sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce
+Status: Downloaded newer image for alpine:3.22
+3ebe4a33a0886a4357ae68ba6520c0bd7f6606d4c5c250e27d4b341f5f5ad2a5
+e95e2468bc1e09ed9449d19600af8375b92fcebe7a1bf84414404c7b498eebdc
+Unable to find image 'mysql:8.4' locally
+8.4: Pulling from library/mysql
+9bebc71cfb90: Pulling fs layer
+860b7bc67210: Pulling fs layer
+30627cea5424: Pulling fs layer
+a8ca58bc6ea9: Pulling fs layer
+d0f44f87b588: Pulling fs layer
+3efae9596a0b: Pulling fs layer
+289dbe2b4aa0: Pulling fs layer
+a5cddd18da97: Pulling fs layer
+01cb8e5472ee: Pulling fs layer
+e31ea7613c63: Pulling fs layer
+860b7bc67210: Download complete
+a8ca58bc6ea9: Download complete
+d0f44f87b588: Download complete
+30627cea5424: Download complete
+a5cddd18da97: Download complete
+e31ea7613c63: Download complete
+9bebc71cfb90: Download complete
+3efae9596a0b: Download complete
+289dbe2b4aa0: Download complete
+01cb8e5472ee: Download complete
+32ca1b8d1938: Download complete
+80a9fe861429: Download complete
+a8ca58bc6ea9: Pull complete
+d0f44f87b588: Pull complete
+30627cea5424: Pull complete
+3efae9596a0b: Pull complete
+860b7bc67210: Pull complete
+a5cddd18da97: Pull complete
+289dbe2b4aa0: Pull complete
+01cb8e5472ee: Pull complete
+e31ea7613c63: Pull complete
+9bebc71cfb90: Pull complete
+Digest: sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb
+Status: Downloaded newer image for mysql:8.4
+8f89dac1b75fd106f1d9059e7063dfe11022cbcd098f5b774cd6baad81f12542
 
 Frontend networks:
 app-net frontend-net 
@@ -28,10 +73,10 @@ Unable to find image 'httpd:2.4-alpine' locally
 2.4-alpine: Pulling from library/httpd
 Digest: sha256:1b766f17b84026429b7cb243317b142921b24432336e798bc881c43f45ed9567
 Status: Downloaded newer image for httpd:2.4-alpine
-512b075bc4a0098a9aefbf47d93c066d1fa1a1864ccb213535fa7237a8549f96
-  % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
-                                 Dload  Upload  Total   Spent   Left   Speed
-  0      0   0      0   0      0      0      0                              0100    191 100    191   0      0 98.16k      0                              0100    191 100    191   0      0  76768      0                              0100    191 100    191   0      0  62849      0                              0
+7f6a0de5b91c803079e5c4de07ae1d51df176b537117651f21fb22310c61ba77
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   191  100   191    0     0    98k      0 --:--:-- --:--:-- --:--:--  186k
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html>
 <head>
@@ -48,15 +93,15 @@ Unable to find image 'nginx:1.29-alpine' locally
 1.29-alpine: Pulling from library/nginx
 Digest: sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de
 Status: Downloaded newer image for nginx:1.29-alpine
-0c50e15884c129ce4d124159749f5dd2f22e1d2d4d632d96ac90322e4e682ac1
+0c08618300a2b56f4dfd4760cf6c1d00daac5a67c832f8c435ec26263003fd8b
 Before host file change:
-  % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
-                                 Dload  Upload  Total   Spent   Left   Speed
-  0      0   0      0   0      0      0      0                              0100     24 100     24   0      0  10699      0                              0100     24 100     24   0      0   8730      0                              0100     24 100     24   0      0   7359      0                              0
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100    24  100    24    0     0  10173      0 --:--:-- --:--:-- --:--:-- 12000
 <h1>Hello students</h1>
 After host file change:
-  % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
-                                 Dload  Upload  Total   Spent   Left   Speed
-  0      0   0      0   0      0      0      0                              0100     45 100     45   0      0  21357      0                              0100     45 100     45   0      0  16835      0                              0100     45 100     45   0      0  14226      0                              0
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100    45  100    45    0     0  27624      0 --:--:-- --:--:-- --:--:-- 45000
 <h1>Hello students - bind mount updated</h1>
-Container ID unchanged: 0c50e15884c129ce4d124159749f5dd2f22e1d2d4d632d96ac90322e4e682ac1
+Container ID unchanged: 0c08618300a2b56f4dfd4760cf6c1d00daac5a67c832f8c435ec26263003fd8b
