@@ -1,0 +1,1 @@
+This file proves that git commit -a does not include untracked files.
