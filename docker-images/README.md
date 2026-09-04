@@ -40,6 +40,8 @@ Real build, run, page, and `docker ps` results:
 
 ## Headless Chromium screenshots
 
+The address bar in the capture shows the required port 8080 URL.
+
 ![Multi-stage application on port 8080](evidence/screenshots/multi-stage-app.png)
 
 ![Multi-stage build and docker ps terminal evidence](evidence/screenshots/docker-terminal.png)

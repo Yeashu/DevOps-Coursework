@@ -17,7 +17,7 @@ def main() -> None:
     if len(lines) > len(shown):
         shown.append(f"... {len(lines) - len(shown)} additional lines are in the text transcript")
     longest = max([len(args.title), *(len(line.expandtabs(4)) for line in shown)], default=40)
-    width = min(max(760, 18 + longest * 8), 1500)
+    width = min(max(1000, 18 + longest * 8), 1500)
     height = 74 + max(1, len(shown)) * 20
 
     rows = []

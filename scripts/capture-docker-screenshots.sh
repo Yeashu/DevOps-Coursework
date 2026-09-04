@@ -32,17 +32,32 @@ wait_for_url() {
 screenshot() {
   local url="$1"
   local output="$2"
+  local slug="${output##*/}"
+  local frame="$work_dir/${slug%.png}-browser-frame.html"
+  printf '%s\n' \
+    '<!doctype html><html><head><meta charset="utf-8"><style>' \
+    '*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;font-family:Arial,sans-serif;background:#fff}' \
+    '.browser{height:52px;padding:9px 14px;display:flex;align-items:center;gap:12px;background:#dee1e6;border-bottom:1px solid #bdc1c6}' \
+    '.dots{font-size:18px;letter-spacing:3px;color:#5f6368}.address{height:34px;line-height:34px;flex:1;padding:0 14px;border-radius:17px;background:#fff;color:#202124;font:14px/34px Arial,sans-serif;box-shadow:inset 0 0 0 1px #c7cacf}' \
+    'iframe{display:block;width:100%;height:calc(100% - 52px);border:0;background:#fff}</style></head><body>' \
+    "<div class=\"browser\"><span class=\"dots\">● ● ●</span><div class=\"address\">URL: $url</div></div>" \
+    "<iframe src=\"$url\"></iframe></body></html>" > "$frame"
   echo "Chromium screenshot: $url -> $output"
   docker exec coursework-browser npx -y playwright@1.55.0 screenshot \
-    --browser chromium --viewport-size=1280,720 --full-page "$url" "/work/$output"
+    --browser chromium --viewport-size=1280,720 \
+    "file:///work/.evidence-work/screenshots/$(basename "$frame")" "/work/$output"
 }
 
 terminal_screenshot() {
-  local url="$1"
+  local input="$1"
   local output="$2"
-  echo "Chromium terminal screenshot: $url -> $output"
+  local dimensions width height
+  dimensions="$(sed -n '1s/.*width="\([0-9]*\)" height="\([0-9]*\)".*/\1 \2/p' "$input")"
+  read -r width height <<< "$dimensions"
+  echo "Chromium terminal screenshot: $input (${width}x${height}) -> $output"
   docker exec coursework-browser timeout 30 npx -y playwright@1.55.0 screenshot \
-    --browser chromium --viewport-size=1500,2600 "$url" "/work/$output"
+    --browser chromium --viewport-size="$width,$height" \
+    "file:///work/${input#"$repo_root/"}" "/work/$output"
 }
 
 docker run -d --name capture-node -p 3001:3000 coursework-nodejs >/dev/null
@@ -98,11 +113,11 @@ screenshot http://localhost:8090 docker-networking/evidence/screenshots/bind-mou
 bind_container_after="$(docker inspect capture-bind-nginx --format '{{.Id}}')"
 test "$bind_container_before" = "$bind_container_after"
 
-terminal_screenshot file:///work/.evidence-work/screenshots/docker-fundamentals-terminal.svg \
+terminal_screenshot "$work_dir/docker-fundamentals-terminal.svg" \
   docker-fundamentals/evidence/screenshots/docker-terminal.png
-terminal_screenshot file:///work/.evidence-work/screenshots/docker-images-terminal.svg \
+terminal_screenshot "$work_dir/docker-images-terminal.svg" \
   docker-images/evidence/screenshots/docker-terminal.png
-terminal_screenshot file:///work/.evidence-work/screenshots/docker-networking-terminal.svg \
+terminal_screenshot "$work_dir/docker-networking-terminal.svg" \
   docker-networking/evidence/screenshots/docker-terminal.png
 
 file "$repo_root"/docker-*/evidence/screenshots/*.png

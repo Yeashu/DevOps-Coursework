@@ -79,6 +79,8 @@ overlay demonstration.
 
 ## Headless Chromium screenshots
 
+The browser-style address bars show the live URLs used for verification.
+
 | Apache using host networking | Bind mount before editing |
 | --- | --- |
 | ![Apache host-network page](evidence/screenshots/host-network-apache.png) | ![Initial bind-mounted page](evidence/screenshots/bind-mount-before.png) |

@@ -50,6 +50,7 @@ in [`evidence/docker-fundamentals-output.txt`](evidence/docker-fundamentals-outp
 ## Headless Chromium screenshots
 
 These PNGs were captured from the running containers with headless Chromium.
+Each capture includes a browser-style address bar showing the tested URL.
 
 | Node.js | Python | Java |
 | --- | --- | --- |
