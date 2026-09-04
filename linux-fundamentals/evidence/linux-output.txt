@@ -1,0 +1,60 @@
+$ date --iso-8601=seconds
+2026-09-04T15:53:17+00:00
+
+=== Soft link and hard link ===
+$ ls -li original.txt soft-link.txt hard-link.txt
+1441846 -rw-rw-rw- 2 vscode vscode 21 Sep  4 15:53 hard-link.txt
+1441846 -rw-rw-rw- 2 vscode vscode 21 Sep  4 15:53 original.txt
+1441847 lrwxrwxrwx 1 vscode vscode 12 Sep  4 15:53 soft-link.txt -> original.txt
+$ readlink soft-link.txt
+original.txt
+Practice files removed successfully.
+
+=== adduser and useradd ===
+$ command -V adduser
+adduser is /usr/sbin/adduser
+$ command -V useradd
+useradd is /usr/sbin/useradd
+$ sudo adduser --disabled-password --gecos '' coursework-user
+usermod: no changes
+$ getent passwd coursework-user
+coursework-user:x:1002:1002::/home/coursework-user:/bin/bash
+$ sudo deluser --remove-home coursework-user
+warn: `/usr/bin/crontab' is not executable. Skipping crontab removal. Package `cron' required.
+
+=== journalctl ===
+$ ps -p 1 -o comm=
+sh
+$ journalctl --no-pager -n 20
+No journal files were found.
+-- No entries --
+$ journalctl -u docker --since today --no-pager
+No journal files were found.
+-- No entries --
+
+=== Linux command practice ===
+$ pwd
+/workspaces/DevOps-Coursework/.evidence-work/system
+$ ls -lah
+total 8.0K
+drwxrwxrwx+  2 vscode vscode 4.0K Sep  4 15:53 .
+drwxrwxrwx+  3 vscode vscode 4.0K Sep  4 15:53 ..
+$ df -h /
+Filesystem      Size  Used Avail Use% Mounted on
+overlay          32G  1.4G   29G   5% /
+$ free -h
+               total        used        free      shared  buff/cache   available
+Mem:           7.8Gi       1.3Gi       212Mi        67Mi       6.7Gi       6.5Gi
+Swap:             0B          0B          0B
+$ ps -ef
+UID          PID    PPID  C STIME TTY          TIME CMD
+root           1       0  0 15:50 ?        00:00:00 /bin/sh -c echo Container started trap "exit 0" 15 /usr/local/share/docker-init.sh /usr/local/share/ssh-init.sh exec "$@" while sleep 1 & wait $!; do :; done -
+root          23       1  0 15:50 ?        00:00:00 dockerd --dns 168.63.129.16
+root          32      23  0 15:50 ?        00:00:00 /usr/bin/containerd --config /var/run/docker/containerd/containerd.toml
+root         311       1  0 15:50 ?        00:00:00 sshd: /usr/sbin/sshd [listener] 0 of 10-100 startups
+root        1665     311  0 15:53 ?        00:00:00 sshd-session: vscode [priv]
+root        1667       1  0 15:53 ?        00:00:00 sleep 1
+vscode      1678    1665  0 15:53 ?        00:00:00 sshd-session: vscode@notty
+vscode      1679    1678  0 15:53 ?        00:00:00 bash -c cd /workspaces/DevOps-Coursework && ./scripts/capture-system-evidence.sh && wc -l linux-fundamentals/evidence/linux-output.txt shell-scripting/evidence/system-info-output.txt networking/evidence/networking-output.txt && tail -8 networking/evidence/networking-output.txt
+vscode      1680    1679  0 15:53 ?        00:00:00 bash ./scripts/capture-system-evidence.sh
+vscode      1746    1680  0 15:53 ?        00:00:00 ps -ef

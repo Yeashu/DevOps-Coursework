@@ -1,0 +1,59 @@
+$ date --iso-8601=seconds
+2026-09-04T15:54:19+00:00
+$ docker version
+Docker client 29.8.0, server 29.8.0
+
+$ docker build -t coursework-nodejs ./nodejs-app
+sha256:15321417300f95404337f5762f7d2a0a3c5e6ce48a85b7419df9b7843cd5bc52
+8940444d54d10c04803a77ae0e602c64e06c083d67c67beeaf3c6f37376220aa
+Node.js response:
+<h1>Hello World from Node.js!</h1>
+$ docker build -t coursework-python ./python-app
+sha256:04bbb001ef7def8c2462dbdae308d7ebd115ccccbc366f8e79c29a3b9b416099
+03d47ef5858b9fc982faa2eb86fa8fd50534769a54a9d43b7b38e5d7f9eb4e4b
+Python response:
+<h1>Hello World from Python!</h1>
+$ docker build -t coursework-java ./java-app
+sha256:9d7d26da2655f38ac2b79919011d179038aacd36d19b1225124f3e27ba8bdfa5
+b2686e5d8d07b50a6e2e3a6fddd5f50f44f27dc714af64cdc9acfdcb65695b26
+Java response:
+<h1>Hello World from Java!</h1>
+$ docker build -t coursework-apache ./Apache-app
+sha256:42e8f396518b115184426b1da9a98aab7a611464da2e042aca237c024851e97f
+ecc5fcc5c8ac020a2cea2998a485931c8be19659beee699f0d2470d9fe2de8c5
+Apache response:
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8"><title>Apache Hello World</title></head>
+  <body><h1>Hello World from Apache!</h1></body>
+</html>
+
+$ docker build -t coursework-react ./React-app
+sha256:676feb041f097df2f4616bbd8ffac45a2e6a66d77fd4df1b19e57d41f00ed708
+e4e3d272b0c7f071518a560443b27b448de240efafc091509a4a8f28f8485bf6
+React response:
+<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>React Hello World</title>  <script type="module" crossorigin src="/assets/index-Cwa7n-4O.js"></script>
+</head>
+  <body><div id="root"></div></body>
+</html>
+
+$ docker build -t coursework-nginx ./nginx-app
+sha256:2c570e0ced4a2062732b2a5257091c8e78e03af8db704e8c2334222b063356b8
+20665592f50098df8760c990a7cf8c05993fc23c38785acca438216f94198082
+Nginx response:
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8"><title>Nginx Hello World</title></head>
+  <body><h1>Hello World from Nginx!</h1></body>
+</html>
+
+$ docker ps
+NAMES          IMAGE               PORTS
+nginx-hello    coursework-nginx    0.0.0.0:8084->80/tcp, [::]:8084->80/tcp
+react-hello    coursework-react    0.0.0.0:8083->80/tcp, [::]:8083->80/tcp
+apache-hello   coursework-apache   0.0.0.0:8082->80/tcp, [::]:8082->80/tcp
+java-hello     coursework-java     0.0.0.0:8081->8080/tcp, [::]:8081->8080/tcp
+python-hello   coursework-python   0.0.0.0:5001->5000/tcp, [::]:5001->5000/tcp
+nodejs-hello   coursework-nodejs   0.0.0.0:3001->3000/tcp, [::]:3001->3000/tcp

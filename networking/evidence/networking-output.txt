@@ -1,0 +1,171 @@
+$ date --iso-8601=seconds
+2026-09-04T15:53:18+00:00
+
+$ ip address show
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
+    link/ether 7c:1e:52:0f:11:a7 brd ff:ff:ff:ff:ff:ff
+    inet 10.0.10.160/16 metric 100 brd 10.0.255.255 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::7e1e:52ff:fe0f:11a7/64 scope link proto kernel_ll 
+       valid_lft forever preferred_lft forever
+3: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN group default 
+    link/ether 02:42:26:96:15:01 brd ff:ff:ff:ff:ff:ff
+    inet 172.17.0.1/16 brd 172.17.255.255 scope global docker0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::42:26ff:fe96:1501/64 scope link proto kernel_ll 
+       valid_lft forever preferred_lft forever
+
+$ ip route show
+default via 10.0.0.1 dev eth0 proto dhcp src 10.0.10.160 metric 100 
+10.0.0.0/16 dev eth0 proto kernel scope link src 10.0.10.160 metric 100 
+10.0.0.1 dev eth0 proto dhcp scope link src 10.0.10.160 metric 100 
+168.63.129.16 via 10.0.0.1 dev eth0 proto dhcp src 10.0.10.160 metric 100 
+169.254.169.254 via 10.0.0.1 dev eth0 proto dhcp src 10.0.10.160 metric 100 
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+
+$ ping -c 4 google.com
+PING google.com (192.178.211.139) 56(84) bytes of data.
+
+--- google.com ping statistics ---
+4 packets transmitted, 0 received, 100% packet loss, time 3086ms
+
+
+$ traceroute -m 8 google.com
+traceroute to google.com (192.178.211.102), 8 hops max, 60 byte packets
+ 1  * * *
+ 2  * * *
+ 3  * * *
+ 4  * * *
+ 5  * * *
+ 6  * * *
+ 7  * * *
+ 8  * * *
+
+$ netstat -tuln
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State      
+tcp        0      0 0.0.0.0:2000            0.0.0.0:*               LISTEN     
+tcp        0      0 127.0.0.1:13005         0.0.0.0:*               LISTEN     
+tcp        0      0 127.0.0.1:41559         0.0.0.0:*               LISTEN     
+tcp        0      0 127.0.0.1:16635         0.0.0.0:*               LISTEN     
+tcp        0      0 127.0.0.1:16634         0.0.0.0:*               LISTEN     
+tcp        0      0 127.0.0.1:16636         0.0.0.0:*               LISTEN     
+tcp        0      0 127.0.0.1:12563         0.0.0.0:*               LISTEN     
+tcp        0      0 0.0.0.0:2222            0.0.0.0:*               LISTEN     
+tcp        0      0 127.0.0.53:53           0.0.0.0:*               LISTEN     
+tcp6       0      0 :::2000                 :::*                    LISTEN     
+tcp6       0      0 ::1:16634               :::*                    LISTEN     
+tcp6       0      0 ::1:16635               :::*                    LISTEN     
+tcp6       0      0 ::1:16636               :::*                    LISTEN     
+tcp6       0      0 :::2222                 :::*                    LISTEN     
+udp        0      0 127.0.0.53:53           0.0.0.0:*                          
+udp        0      0 10.0.10.160:68          0.0.0.0:*                          
+
+$ telnet google.com 80
+Trying 192.178.211.139...
+Connected to google.com.
+Escape character is '^]'.
+Connection closed by foreign host.
+
+$ sudo tcpdump -nn -i any -c 5 host google.com
+tcpdump: WARNING: any: That device doesn't support promiscuous mode
+(Promiscuous mode not supported on the "any" device)
+tcpdump: verbose output suppressed, use -v[v]... for full protocol decode
+listening on any, link-type LINUX_SLL2 (Linux cooked v2), snapshot length 262144 bytes
+
+0 packets captured
+10 packets received by filter
+0 packets dropped by kernel
+
+$ nslookup google.com
+Server:		127.0.0.53
+Address:	127.0.0.53#53
+
+Non-authoritative answer:
+Name:	google.com
+Address: 192.178.211.138
+Name:	google.com
+Address: 192.178.211.102
+Name:	google.com
+Address: 192.178.211.139
+Name:	google.com
+Address: 192.178.211.113
+Name:	google.com
+Address: 192.178.211.100
+Name:	google.com
+Address: 192.178.211.101
+Name:	google.com
+Address: 2404:6800:4000:1025::66
+Name:	google.com
+Address: 2404:6800:4000:1025::71
+Name:	google.com
+Address: 2404:6800:4000:1025::8b
+Name:	google.com
+Address: 2404:6800:4000:1025::64
+
+
+$ dig google.com
+
+; <<>> DiG 9.20.24-1ubuntu0.3-Ubuntu <<>> google.com
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 7594
+;; flags: qr rd ra; QUERY: 1, ANSWER: 6, AUTHORITY: 0, ADDITIONAL: 1
+
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 65494
+;; QUESTION SECTION:
+;google.com.			IN	A
+
+;; ANSWER SECTION:
+google.com.		132	IN	A	192.178.211.139
+google.com.		132	IN	A	192.178.211.101
+google.com.		132	IN	A	192.178.211.102
+google.com.		132	IN	A	192.178.211.100
+google.com.		132	IN	A	192.178.211.138
+google.com.		132	IN	A	192.178.211.113
+
+;; Query time: 0 msec
+;; SERVER: 127.0.0.53#53(127.0.0.53) (UDP)
+;; WHEN: Fri Sep 04 15:53:53 UTC 2026
+;; MSG SIZE  rcvd: 135
+
+
+$ curl -I https://www.google.com
+  % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
+                                 Dload  Upload  Total   Spent   Left   Speed
+  0      0   0      0   0      0      0      0                              0  0      0   0      0   0      0      0      0                              0  0      0   0      0   0      0      0      0                              0  0      0   0      0   0      0      0      0                              0
+HTTP/2 200 
+content-type: text/html; charset=ISO-8859-1
+content-security-policy-report-only: object-src 'none';base-uri 'self';script-src 'nonce-QDX2grhsTx4Krwh518zvoA' 'strict-dynamic' 'report-sample' 'unsafe-eval' 'unsafe-inline' https: http:;report-uri https://csp.withgoogle.com/csp/gws/other-hp
+accept-ch: Sec-CH-Prefers-Color-Scheme
+p3p: CP="This is not a P3P policy! See g.co/p3phelp for more info."
+date: Fri, 04 Sep 2026 15:53:53 GMT
+server: gws
+x-xss-protection: 0
+x-frame-options: SAMEORIGIN
+expires: Fri, 04 Sep 2026 15:53:53 GMT
+cache-control: private
+set-cookie: __Secure-STRP=ANmZwa3k_kJlC2HapWbWkkhU6wuR7NSZnQmItbVPuVuQvZUpBMEy1RqCy7XnbYE9N617OPZ4gdX_xj5qJLMOciWuSl0HQedZKq8J; expires=Fri, 04-Sep-2026 15:58:53 GMT; path=/; domain=.google.com; Secure; SameSite=strict
+set-cookie: AEC=AdJVEavJTr2ygG0dT64quY69dYPaDBGC6pr96ib6r2aUPJ3O9wTt5Jptc6Y; expires=Wed, 03-Mar-2027 15:53:53 GMT; path=/; domain=.google.com; Secure; HttpOnly; SameSite=lax
+set-cookie: NID=534=gb4gjmQWwSwQwWG39tI6Uq2TAMYiieWVAGbLb9Jzez-L6pP_IYVCF9Env0xuXgFMok4wQNLdLLwXT6bUkO9aQ-45uoOJq0jgGnacBtH_DRemco72D6YpUa8Es0ZRmVSgaVR42WtNpk2NORINyRn9NuQJEKQd0dzDNzLi-5Emx2yQ5I84lsDFMlWV6-P7acGBhnhhcd0fH7oPqFidohJs; expires=Sat, 06-Mar-2027 15:53:53 GMT; path=/; domain=.google.com; HttpOnly
+alt-svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+
+
+$ arp -a
+_gateway (10.0.0.1) at 12:34:56:78:9a:bc [ether] on eth0
+$ ip neigh
+10.0.0.1 dev eth0 lladdr 12:34:56:78:9a:bc REACHABLE 
+
+$ systemctl status NetworkManager
+
+"systemd" is not running in this container due to its overhead.
+Use the "service" command to start services instead. e.g.: 
+
+service --status-all

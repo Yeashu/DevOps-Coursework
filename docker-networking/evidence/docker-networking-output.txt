@@ -1,0 +1,62 @@
+Temporarily changing the stale iptables-legacy FORWARD policy to ACCEPT.
+=== Three-network container topology ===
+818bf448b07a4f35c680f9e818472bcb51347dfb72b3d24df6f9157600116787
+59a2f6681f677360fe31687b40deba15704f51dde0f66ce7c6c00b9d78e4063b
+2f9361703fa8907cab6ebd30dead6d4aa7ccc83d201fd8dbb941b23cfd3b08c5
+c2f50b433a8b175315c56461f9512589b1a28eed067ff052bed7d505694d23ab
+6f39def041e70ef0c666e670f41afec5a70fca150afbbfd9cf5445843b4aa0e2
+faf083c04d5092e8ac2b87bfd8d14d809f04ed1796e74275a8ab511653e4a0a0
+
+Frontend networks:
+app-net frontend-net 
+Backend networks:
+app-net database-net 
+Database networks:
+database-net 
+
+Frontend to backend (expected success):
+Hello from backend
+Backend to database (expected success):
+coursework-database (172.20.0.3:3306) open
+
+Frontend to database (expected isolation):
+nc: bad address 'coursework-database'
+Expected result: frontend cannot resolve or reach the database directly.
+
+=== Apache host-network demonstration ===
+Unable to find image 'httpd:2.4-alpine' locally
+2.4-alpine: Pulling from library/httpd
+Digest: sha256:1b766f17b84026429b7cb243317b142921b24432336e798bc881c43f45ed9567
+Status: Downloaded newer image for httpd:2.4-alpine
+512b075bc4a0098a9aefbf47d93c066d1fa1a1864ccb213535fa7237a8549f96
+  % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
+                                 Dload  Upload  Total   Spent   Left   Speed
+  0      0   0      0   0      0      0      0                              0100    191 100    191   0      0 98.16k      0                              0100    191 100    191   0      0  76768      0                              0100    191 100    191   0      0  62849      0                              0
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<title>It works! Apache httpd</title>
+</head>
+<body>
+<p>It works!</p>
+</body>
+</html>
+Network mode: host
+
+=== Nginx bind-mount demonstration ===
+Unable to find image 'nginx:1.29-alpine' locally
+1.29-alpine: Pulling from library/nginx
+Digest: sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de
+Status: Downloaded newer image for nginx:1.29-alpine
+0c50e15884c129ce4d124159749f5dd2f22e1d2d4d632d96ac90322e4e682ac1
+Before host file change:
+  % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
+                                 Dload  Upload  Total   Spent   Left   Speed
+  0      0   0      0   0      0      0      0                              0100     24 100     24   0      0  10699      0                              0100     24 100     24   0      0   8730      0                              0100     24 100     24   0      0   7359      0                              0
+<h1>Hello students</h1>
+After host file change:
+  % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
+                                 Dload  Upload  Total   Spent   Left   Speed
+  0      0   0      0   0      0      0      0                              0100     45 100     45   0      0  21357      0                              0100     45 100     45   0      0  16835      0                              0100     45 100     45   0      0  14226      0                              0
+<h1>Hello students - bind mount updated</h1>
+Container ID unchanged: 0c50e15884c129ce4d124159749f5dd2f22e1d2d4d632d96ac90322e4e682ac1
