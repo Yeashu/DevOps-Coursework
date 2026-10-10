@@ -20,8 +20,8 @@ Each assignment README links its code, exact commands, explanations and executio
 | 13 | [Storage, HPA & Probes](session13-storage-hpa-probes/README.md) |
 | 14 | [Kubernetes Troubleshooting](session14-troubleshooting/README.md) |
 | 15 | [Helm](session15-helm/README.md) |
-| 16 | [CI/CD & GitHub Actions](session16-cicd/README.md) |
-| 17 | [Complete CI/CD & DevSecOps](Hello-CICD/README.md) |
+| 16 | [CI/CD & GitHub Actions](https://github.com/Yeashu/Hello-CICD/blob/main/session16/README.md) |
+| 17 | [Complete CI/CD & DevSecOps](https://github.com/Yeashu/Hello-CICD/blob/main/session17/README.md) |
 | 18 | [Terraform & Infrastructure as Code](session18-terraform-iac/README.md) |
 | 19 | [Cloud & Terraform in Action](session19-cloud-terraform/README.md) |
 | 20 | [Monitoring, Observability & GitOps](session20-monitoring/README.md) |

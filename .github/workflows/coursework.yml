@@ -1,4 +1,4 @@
-name: CI/CD, DevSecOps and coursework evidence
+name: Coursework lab verification and evidence
 
 on:
   push:
@@ -84,26 +84,6 @@ jobs:
             fi
             printf '%s\n' "$result"
             [[ "$result" == *"$expected"* ]]
-          }
-
-          publish_image() {
-          set -euo pipefail
-          source_image="$1"
-          package="$2"
-          output="$3"
-          owner="${GITHUB_REPOSITORY_OWNER,,}"
-          destination="ghcr.io/$owner/$package:${GITHUB_SHA}"
-          mkdir -p "$(dirname "$output")"
-          printf '%s' "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          docker tag "$source_image" "$destination"
-          {
-            printf '$ docker push %s\n' "$destination"
-            docker push "$destination"
-            printf '$ docker image inspect %s --format {{.Id}}\n' "$destination"
-            docker image inspect "$destination" --format '{{.Id}}'
-          } > "$output" 2>&1
-          cat "$output"
-
           }
 
           case "${{ matrix.lab }}" in
@@ -559,207 +539,12 @@ jobs:
             **/README.md
           retention-days: 14
 
-  cicd:
-    name: Session 16 build, test, registry and deployment
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Install lab tools and start Kubernetes
-        run: |
-          python -m pip install Pillow PyYAML
-          curl -fsSL https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 -o /tmp/minikube
-          sudo install /tmp/minikube /usr/local/bin/minikube
-          helm_release=v3.17.3
-          curl -fsSL "https://get.helm.sh/helm-${helm_release}-linux-amd64.tar.gz" -o /tmp/helm.tar.gz
-          tar -xzf /tmp/helm.tar.gz -C /tmp
-          sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
-          minikube start --driver=docker --cpus=2 --memory=4096 --cni=calico
-          minikube addons enable metrics-server
-          kubectl -n kube-system rollout status deployment/metrics-server --timeout=240s
-          kubectl get nodes -o wide
-      - name: CI and CD
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COURSEWORK_PUBLISH_IMAGES: '1'
-        run: |
-          set -euo pipefail
-
-          repo_root="$GITHUB_WORKSPACE"
-          cd "$repo_root"
-
-          record() {
-            local destination="$1"
-            shift
-            mkdir -p "$(dirname "$destination")"
-            (
-              set -euo pipefail
-              PS4='$ '
-              set -x
-              "$@"
-            ) > "$destination" 2>&1
-            cat "$destination"
-          }
-
-          wait_ready() {
-            kubectl -n "$ns" wait --for=condition=Ready "pod/$1" --timeout=240s
-          }
-
-          expect_error() {
-            local expected="$1"
-            shift
-            local result
-            if result=$("$@" 2>&1); then
-              printf '%s\n' "$result"
-              echo "Expected a failure but the command succeeded." >&2
-              return 1
-            fi
-            printf '%s\n' "$result"
-            [[ "$result" == *"$expected"* ]]
-          }
-
-          publish_image() {
-          set -euo pipefail
-          source_image="$1"
-          package="$2"
-          output="$3"
-          owner="${GITHUB_REPOSITORY_OWNER,,}"
-          destination="ghcr.io/$owner/$package:${GITHUB_SHA}"
-          mkdir -p "$(dirname "$output")"
-          printf '%s' "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          docker tag "$source_image" "$destination"
-          {
-            printf '$ docker push %s\n' "$destination"
-            docker push "$destination"
-            printf '$ docker image inspect %s --format {{.Id}}\n' "$destination"
-            docker image inspect "$destination" --format '{{.Id}}'
-          } > "$output" 2>&1
-          cat "$output"
-
-          }
-
-          ns=coursework-s16
-          section=session16-cicd
-
-          build_test() {
-            cd "$repo_root/$section"
-            python -m pip install -r requirements-dev.txt
-            python -m pytest -v --cov=app --cov-report=term-missing --junitxml=build-tests.xml
-            bash build.sh
-            cat build/build-info.txt
-            echo 'GitHub workflow artifact: calculator build directory and execution evidence.'
-            echo 'Registry authentication is performed outside the recorded shell trace.'
-            docker build -t coursework-calculator:lab .
-          }
-
-          deploy() {
-            minikube image load coursework-calculator:lab
-            kubectl create namespace "$ns" --dry-run=client -o yaml | kubectl apply -f -
-            kubectl -n "$ns" create deployment calculator --image=coursework-calculator:lab
-            kubectl -n "$ns" rollout status deployment/calculator --timeout=240s
-            kubectl -n "$ns" expose deployment calculator --port=80 --target-port=5001
-            kubectl -n "$ns" port-forward service/calculator 15016:80 > /tmp/coursework-s16-forward.log 2>&1 &
-            forward_pid=$!
-            trap 'kill "$forward_pid" 2>/dev/null || true' EXIT
-            for attempt in $(seq 1 20); do
-              curl -fsS http://localhost:15016/health && break
-              sleep 2
-            done
-            curl -fsS http://localhost:15016/health
-            curl -fsS -H 'Content-Type: application/json' -d '{"a":6,"b":3,"operation":"multiply"}' http://localhost:15016/calculate
-            kubectl -n "$ns" get pods,service -o wide
-            kill "$forward_pid"
-            trap - EXIT
-          }
-
-          record "$section/evidence/01-build-tests.txt" build_test
-          if [[ "${COURSEWORK_PUBLISH_IMAGES:-0}" = 1 ]]; then
-            publish_image coursework-calculator:lab session16-calculator "$section/evidence/02-registry.txt"
-          fi
-          record "$section/evidence/03-kubernetes-deployment.txt" deploy
-          kubectl delete namespace "$ns" --wait=true
-      - name: Render evidence
-        run: |
-          python - session16-cicd <<'PY'
-          #!/usr/bin/env python3
-          """Render genuine saved lab output and embed each image in its session README."""
-          import argparse
-          import re
-          import textwrap
-          from pathlib import Path
-
-          from PIL import Image, ImageDraw, ImageFont
-
-
-          def main():
-              parser = argparse.ArgumentParser()
-              parser.add_argument("sessions", nargs="+")
-              args = parser.parse_args()
-              for name in args.sessions:
-                  root = Path(name)
-                  outputs = sorted((root / "evidence").glob("*.txt"))
-                  if not outputs:
-                      raise SystemExit(f"No recorded output for {name}")
-                  blocks = ["## Recorded execution evidence", "",
-                            "These PNGs render the saved output of real commands. Each image links to its complete transcript.", ""]
-                  for source in outputs:
-                      text = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", source.read_text(errors="replace"))
-                      lines = [part for line in text.splitlines() for part in
-                               (textwrap.wrap(line.expandtabs(4), 118, replace_whitespace=False) or [""])]
-                      font_path = next((p for p in ["/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
-                                                   "/System/Library/Fonts/Menlo.ttc"] if Path(p).exists()), None)
-                      font = ImageFont.truetype(font_path, 16) if font_path else ImageFont.load_default()
-                      for page, start in enumerate(range(0, max(1, len(lines)), 55), 1):
-                          shown = lines[start:start + 55]
-                          image = Image.new("RGB", (1280, 112 + 23 * len(shown)), "#0d1117")
-                          draw = ImageDraw.Draw(image)
-                          draw.rectangle((0, 0, 1280, 46), fill="#21262d")
-                          draw.text((22, 14), f"{root.name} / {source.name} / {page}", font=font, fill="#f0f6fc")
-                          for i, line in enumerate(shown):
-                              draw.text((22, 62 + i * 23), line, font=font,
-                                        fill="#7ee787" if line.startswith("$ ") else "#c9d1d9")
-                          draw.text((22, image.height - 30), "Recorded command output; full transcript linked below", font=font, fill="#8b949e")
-                          destination = root / "screenshots" / f"{source.stem}-{page:02}.png"
-                          destination.parent.mkdir(parents=True, exist_ok=True)
-                          image.save(destination)
-                          blocks += [f"![{source.stem}, page {page}]({destination.relative_to(root)})", ""]
-                      blocks += [f"[Complete commands and output: {source.name}]({source.relative_to(root)})", ""]
-                  readme = root / "README.md"
-                  current = readme.read_text().split("## Recorded execution evidence")[0].rstrip()
-                  readme.write_text(current + "\n\n" + "\n".join(blocks))
-
-
-          if __name__ == "__main__":
-              main()
-
-          PY
-      - name: Upload build and evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: evidence-cicd
-          path: |
-            README.md
-            session16-cicd/README.md
-            session16-cicd/evidence/
-            session16-cicd/screenshots/
-            session16-cicd/build/
-            session16-cicd/build-tests.xml
-          retention-days: 14
-
-  devsecops:
-    name: Session 17 security gates and Session 20 observability/GitOps
+  observability:
+    name: Session 20 observability and GitOps
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
       contents: write
-      packages: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -778,145 +563,11 @@ jobs:
           minikube addons enable metrics-server
           kubectl -n kube-system rollout status deployment/metrics-server --timeout=240s
           kubectl get nodes -o wide
-      - name: Install security scanners
-        run: |
-          release=$(curl -fsSL https://api.github.com/repos/gitleaks/gitleaks/releases/latest)
-          asset=$(printf '%s' "$release" | jq -r '.assets[] | select(.name | endswith("linux_x64.tar.gz")) | .browser_download_url')
-          curl -fsSL "$asset" -o /tmp/gitleaks.tar.gz
-          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
-          sudo install /tmp/gitleaks /usr/local/bin/gitleaks
-          release=$(curl -fsSL https://api.github.com/repos/aquasecurity/trivy/releases/latest)
-          asset=$(printf '%s' "$release" | jq -r '.assets[] | select(.name | endswith("Linux-64bit.tar.gz")) | .browser_download_url')
-          curl -fsSL "$asset" -o /tmp/trivy.tar.gz
-          tar -xzf /tmp/trivy.tar.gz -C /tmp trivy
-          sudo install /tmp/trivy /usr/local/bin/trivy
-          gitleaks version
-          trivy --version
-      - name: Gated DevSecOps pipeline
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          COURSEWORK_PUBLISH_IMAGES: '1'
+      - name: Build the monitoring application
         run: |
           set -euo pipefail
-
-          repo_root="$GITHUB_WORKSPACE"
-          cd "$repo_root"
-
-          record() {
-            local destination="$1"
-            shift
-            mkdir -p "$(dirname "$destination")"
-            (
-              set -euo pipefail
-              PS4='$ '
-              set -x
-              "$@"
-            ) > "$destination" 2>&1
-            cat "$destination"
-          }
-
-          wait_ready() {
-            kubectl -n "$ns" wait --for=condition=Ready "pod/$1" --timeout=240s
-          }
-
-          expect_error() {
-            local expected="$1"
-            shift
-            local result
-            if result=$("$@" 2>&1); then
-              printf '%s\n' "$result"
-              echo "Expected a failure but the command succeeded." >&2
-              return 1
-            fi
-            printf '%s\n' "$result"
-            [[ "$result" == *"$expected"* ]]
-          }
-
-          publish_image() {
-          set -euo pipefail
-          source_image="$1"
-          package="$2"
-          output="$3"
-          owner="${GITHUB_REPOSITORY_OWNER,,}"
-          destination="ghcr.io/$owner/$package:${GITHUB_SHA}"
-          mkdir -p "$(dirname "$output")"
-          printf '%s' "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          docker tag "$source_image" "$destination"
-          {
-            printf '$ docker push %s\n' "$destination"
-            docker push "$destination"
-            printf '$ docker image inspect %s --format {{.Id}}\n' "$destination"
-            docker image inspect "$destination" --format '{{.Id}}'
-          } > "$output" 2>&1
-          cat "$output"
-
-          }
-
-          ns=coursework-s17
-          section=Hello-CICD
-
-          unit_tests() {
-            cd "$repo_root/$section"
-            python -m pip install -r requirements-dev.txt
-            python -m compileall -q app
-            python -m pytest -v --cov=app --cov-report=term-missing --junitxml=test-results.xml
-          }
-
-          sast() {
-            python -m bandit -r "$section/app" -lll -iii
-            fixture=$(mktemp -d)
-            printf 'import subprocess\nsubprocess.run(input("command: "), shell=True)\n' > "$fixture/unsafe.py"
-            expect_error 'Issue:' python -m bandit "$fixture/unsafe.py" -lll -iii
-            rm -rf "$fixture"
-            echo 'SAST gate rejected the intentionally unsafe fixture.'
-          }
-
-          dependencies_and_secrets() {
-            python -m pip_audit -r "$section/requirements.txt"
-            gitleaks dir "$section" --no-banner --redact
-            fixture=$(mktemp -d)
-            printf 'api_key = "aB9xP2qT7mR4vL8nC5sW1jK6hF3zD0uE"\n' > "$fixture/secret.txt"
-            expect_error 'leaks found' gitleaks dir "$fixture" --no-banner --redact
-            rm -rf "$fixture"
-            echo 'Secret gate rejected the synthetic credential fixture.'
-          }
-
-          image_scan() {
-            docker build -t coursework-devsecops:lab "$section"
-            trivy image --scanners vuln --severity HIGH,CRITICAL --exit-code 0 coursework-devsecops:lab
-            trivy image --scanners vuln --severity CRITICAL --exit-code 1 coursework-devsecops:lab
-            echo 'CRITICAL vulnerability security gate passed.'
-          }
-
-          deployment() {
-            minikube image load coursework-devsecops:lab
-            kubectl create namespace "$ns" --dry-run=client -o yaml | kubectl apply -f -
-            kubectl -n "$ns" apply -f "$section/k8s/"
-            kubectl -n "$ns" rollout status deployment/session17-python --timeout=240s
-            kubectl -n "$ns" port-forward service/session17-python 15017:80 > /tmp/coursework-s17-forward.log 2>&1 &
-            forward_pid=$!
-            trap 'kill "$forward_pid" 2>/dev/null || true' EXIT
-            for attempt in $(seq 1 20); do
-              curl -fsS http://localhost:15017/health && break
-              sleep 2
-            done
-            curl -fsS http://localhost:15017/health
-            curl -fsS -H 'Content-Type: application/json' -d '{"a":6,"b":3,"operation":"multiply"}' http://localhost:15017/api/calculate
-            kubectl -n "$ns" get pods,service -o wide
-            kubectl -n "$ns" logs deployment/session17-python --tail=12
-            kill "$forward_pid"
-            trap - EXIT
-          }
-
-          record "$section/evidence/01-unit-tests.txt" unit_tests
-          record "$section/evidence/02-sast-gate.txt" sast
-          record "$section/evidence/03-dependencies-secrets.txt" dependencies_and_secrets
-          record "$section/evidence/04-image-security-gate.txt" image_scan
-          if [[ "${COURSEWORK_PUBLISH_IMAGES:-0}" = 1 ]]; then
-            publish_image coursework-devsecops:lab session17-devsecops "$section/evidence/05-registry.txt"
-          fi
-          record "$section/evidence/06-kubernetes-deployment.txt" deployment
-          kubectl delete namespace "$ns" --wait=true
+          docker build -t coursework-devsecops:lab Hello-CICD
+          minikube image load coursework-devsecops:lab
       - name: Monitoring, alerts and GitOps reconciliation
         run: |
           set -euo pipefail
@@ -952,26 +603,6 @@ jobs:
             fi
             printf '%s\n' "$result"
             [[ "$result" == *"$expected"* ]]
-          }
-
-          publish_image() {
-          set -euo pipefail
-          source_image="$1"
-          package="$2"
-          output="$3"
-          owner="${GITHUB_REPOSITORY_OWNER,,}"
-          destination="ghcr.io/$owner/$package:${GITHUB_SHA}"
-          mkdir -p "$(dirname "$output")"
-          printf '%s' "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          docker tag "$source_image" "$destination"
-          {
-            printf '$ docker push %s\n' "$destination"
-            docker push "$destination"
-            printf '$ docker image inspect %s --format {{.Id}}\n' "$destination"
-            docker image inspect "$destination" --format '{{.Id}}'
-          } > "$output" 2>&1
-          cat "$output"
-
           }
 
           ns=coursework-s20
@@ -1193,13 +824,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: evidence-devsecops
+          name: evidence-observability
           path: |
             README.md
-            Hello-CICD/README.md
-            Hello-CICD/evidence/
-            Hello-CICD/screenshots/
-            Hello-CICD/test-results.xml
             session20-monitoring/README.md
             session20-monitoring/evidence/
             session20-monitoring/screenshots/
@@ -1254,26 +881,6 @@ jobs:
             fi
             printf '%s\n' "$result"
             [[ "$result" == *"$expected"* ]]
-          }
-
-          publish_image() {
-          set -euo pipefail
-          source_image="$1"
-          package="$2"
-          output="$3"
-          owner="${GITHUB_REPOSITORY_OWNER,,}"
-          destination="ghcr.io/$owner/$package:${GITHUB_SHA}"
-          mkdir -p "$(dirname "$output")"
-          printf '%s' "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          docker tag "$source_image" "$destination"
-          {
-            printf '$ docker push %s\n' "$destination"
-            docker push "$destination"
-            printf '$ docker image inspect %s --format {{.Id}}\n' "$destination"
-            docker image inspect "$destination" --format '{{.Id}}'
-          } > "$output" 2>&1
-          cat "$output"
-
           }
 
 
@@ -1365,7 +972,7 @@ jobs:
 
   assemble:
     name: Collect verified coursework and screenshots
-    needs: [kubernetes, cicd, devsecops, terraform]
+    needs: [kubernetes, observability, terraform]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -1382,7 +989,7 @@ jobs:
           COURSEWORK_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           python -m pip install Pillow
-          python - linux-fundamentals shell-scripting networking git-and-github session9-k8s session10-k8s-core-objects session-11-kubernetes-services session-12-ingress-configmaps-secrets session13-storage-hpa-probes session14-troubleshooting session15-helm session16-cicd Hello-CICD session18-terraform-iac session19-cloud-terraform session20-monitoring <<'PY'
+          python - linux-fundamentals shell-scripting networking git-and-github session9-k8s session10-k8s-core-objects session-11-kubernetes-services session-12-ingress-configmaps-secrets session13-storage-hpa-probes session14-troubleshooting session15-helm session18-terraform-iac session19-cloud-terraform session20-monitoring <<'PY'
           #!/usr/bin/env python3
           """Render genuine saved lab output and embed each image in its session README."""
           import argparse
@@ -1472,14 +1079,16 @@ jobs:
                        'Each assignment README links its code, exact commands, explanations and execution evidence.', '',
                        '| Session | Assignment README |', '| --- | --- |']
               for number, title, directory in SECTIONS:
-                  lines.append(f'| {number} | [{title}]({directory}/README.md) |')
+                  target = (f'https://github.com/Yeashu/Hello-CICD/blob/main/session{number}/README.md'
+                            if number in ('16', '17') else f'{directory}/README.md')
+                  lines.append(f'| {number} | [{title}]({target}) |')
                   readme = Path(directory) / 'README.md'
                   if not readme.exists():
                       raise SystemExit(f'Missing README: {readme}')
                   if run_url and directory in ['git-and-github', 'linux-fundamentals', 'session9-k8s',
                                               'session-12-ingress-configmaps-secrets', 'session13-storage-hpa-probes',
-                                              'session14-troubleshooting', 'session15-helm', 'session16-cicd',
-                                              'Hello-CICD', 'session18-terraform-iac', 'session19-cloud-terraform', 'session20-monitoring']:
+                                              'session14-troubleshooting', 'session15-helm',
+                                              'session18-terraform-iac', 'session19-cloud-terraform', 'session20-monitoring']:
                       text = readme.read_text()
                       text = re.sub(r'\n\[Verified workflow execution\]\([^\n]+\)\n?', '\n', text)
                       readme.write_text(text.rstrip() + f'\n\n[Verified workflow execution]({run_url})\n')

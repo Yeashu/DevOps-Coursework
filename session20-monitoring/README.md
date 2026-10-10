@@ -6,7 +6,10 @@
 The exercise runs an instrumented Flask app, Prometheus, Node Exporter, Grafana and Argo CD in an ephemeral Minikube environment.
 
 ```bash
+docker build -t coursework-devsecops:lab ../Hello-CICD
+minikube image load coursework-devsecops:lab
 kubectl create namespace coursework-s20
+kubectl -n coursework-s20 apply -f ../Hello-CICD/k8s/
 kubectl -n coursework-s20 apply -f monitoring/
 kubectl -n coursework-s20 get pods,services
 kubectl -n coursework-s20 port-forward service/grafana 13000:3000
@@ -17,6 +20,8 @@ kubectl -n coursework-s20 port-forward service/grafana 13000:3000
 [Prometheus](monitoring/prometheus.yaml) scrapes application request metrics and node resource metrics, evaluates the [ApplicationUnavailable rule](monitoring/prometheus.yaml), and exposes a query API. [Grafana](monitoring/grafana.yaml) provisions a dashboard with application health, HTTP request count, CPU utilization and memory utilization. Anonymous access is restricted to Viewer and is used only in this temporary lab.
 
 The runner queries each metric, prints application logs, scales the application to zero, waits for the alert to fire, restores the application and verifies the alert clears. Node metrics describe the Minikube node; they are not per-Pod resource measurements. `kubectl top pods` separately shows Pod CPU and memory.
+
+The coursework workflow builds and loads the instrumented application for this lab. Sessions 16 and 17 run their delivery pipeline in the [standalone Hello-CICD repository](https://github.com/Yeashu/Hello-CICD).
 
 ## Observability
 
