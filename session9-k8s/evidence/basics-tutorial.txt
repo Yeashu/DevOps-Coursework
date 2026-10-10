@@ -1,0 +1,179 @@
+$ kubernetes_basics
+$ ns=coursework-s9
+$ minikube status
+minikube
+type: Control Plane
+host: Running
+kubelet: Running
+apiserver: Running
+kubeconfig: Configured
+
+$ kubectl get nodes -o wide
+NAME       STATUS   ROLES           AGE    VERSION   INTERNAL-IP    EXTERNAL-IP   OS-IMAGE                         KERNEL-VERSION              CONTAINER-RUNTIME
+minikube   Ready    control-plane   102s   v1.37.0   192.168.49.2   <none>        Debian GNU/Linux 12 (bookworm)   6.17.0-1022-azure (amd64)   containerd://2.3.4
+$ kubectl create namespace coursework-s9 --dry-run=client -o yaml
+$ kubectl apply -f -
+namespace/coursework-s9 created
+$ kubectl -n coursework-s9 create deployment tutorial-web --image=nginx:1.27-alpine
+deployment.apps/tutorial-web created
+$ kubectl -n coursework-s9 rollout status deployment/tutorial-web --timeout=240s
+Waiting for deployment "tutorial-web" rollout to finish: 0 of 1 updated replicas are available...
+deployment "tutorial-web" successfully rolled out
+$ kubectl -n coursework-s9 get deployment,replicaset,pods -o wide
+NAME                           READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES              SELECTOR
+deployment.apps/tutorial-web   1/1     1            1           2s    nginx        nginx:1.27-alpine   app=tutorial-web
+
+NAME                                      DESIRED   CURRENT   READY   AGE   CONTAINERS   IMAGES              SELECTOR
+replicaset.apps/tutorial-web-844d5b94d9   1         1         1       2s    nginx        nginx:1.27-alpine   app=tutorial-web,pod-template-hash=844d5b94d9
+
+NAME                                READY   STATUS    RESTARTS   AGE   IP              NODE       NOMINATED NODE   READINESS GATES
+pod/tutorial-web-844d5b94d9-flhtq   1/1     Running   0          2s    10.244.120.68   minikube   <none>           <none>
+$ kubectl -n coursework-s9 describe deployment tutorial-web
+Name:                   tutorial-web
+Namespace:              coursework-s9
+CreationTimestamp:      Wed, 14 Oct 2026 18:55:09 +0000
+Labels:                 app=tutorial-web
+Annotations:            deployment.kubernetes.io/revision: 1
+Selector:               app=tutorial-web
+Replicas:               1 desired | 1 updated | 1 total | 1 available | 0 unavailable
+StrategyType:           RollingUpdate
+MinReadySeconds:        0
+RollingUpdateStrategy:  25% max unavailable, 25% max surge
+Pod Template:
+  Labels:  app=tutorial-web
+  Containers:
+   nginx:
+    Image:         nginx:1.27-alpine
+    Port:          <none>
+    Host Port:     <none>
+    Environment:   <none>
+    Mounts:        <none>
+  Volumes:         <none>
+  Node-Selectors:  <none>
+  Tolerations:     <none>
+Conditions:
+  Type           Status  Reason
+  ----           ------  ------
+  Available      True    MinimumReplicasAvailable
+  Progressing    True    NewReplicaSetAvailable
+OldReplicaSets:  <none>
+NewReplicaSet:   tutorial-web-844d5b94d9 (1/1 replicas created)
+Events:
+  Type    Reason             Age   From                   Message
+  ----    ------             ----  ----                   -------
+  Normal  ScalingReplicaSet  2s    deployment-controller  Scaled up replica set tutorial-web-844d5b94d9 from 0 to 1
+$ kubectl -n coursework-s9 logs deployment/tutorial-web --tail=10
+2026/10/14 18:55:11 [notice] 1#1: using the "epoll" event method
+2026/10/14 18:55:11 [notice] 1#1: nginx/1.27.5
+2026/10/14 18:55:11 [notice] 1#1: built by gcc 14.2.0 (Alpine 14.2.0)
+2026/10/14 18:55:11 [notice] 1#1: OS: Linux 6.17.0-1022-azure
+2026/10/14 18:55:11 [notice] 1#1: getrlimit(RLIMIT_NOFILE): 1048576:1048576
+2026/10/14 18:55:11 [notice] 1#1: start worker processes
+2026/10/14 18:55:11 [notice] 1#1: start worker process 30
+2026/10/14 18:55:11 [notice] 1#1: start worker process 31
+2026/10/14 18:55:11 [notice] 1#1: start worker process 32
+2026/10/14 18:55:11 [notice] 1#1: start worker process 33
+$ kubectl -n coursework-s9 expose deployment tutorial-web --port=80
+service/tutorial-web exposed
+$ kubectl -n coursework-s9 run tutorial-client --image=busybox:1.36 --command -- sleep 3600
+pod/tutorial-client created
+$ wait_ready tutorial-client
+$ kubectl -n coursework-s9 wait --for=condition=Ready pod/tutorial-client --timeout=240s
+pod/tutorial-client condition met
+$ kubectl -n coursework-s9 exec tutorial-client -- sh -c 'for attempt in $(seq 1 20); do wget -qT 3 -O- http://tutorial-web && exit 0; sleep 2; done; exit 1'
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+html { color-scheme: light dark; }
+body { width: 35em; margin: 0 auto;
+font-family: Tahoma, Verdana, Arial, sans-serif; }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+$ kubectl -n coursework-s9 scale deployment/tutorial-web --replicas=3
+deployment.apps/tutorial-web scaled
+$ kubectl -n coursework-s9 rollout status deployment/tutorial-web --timeout=240s
+Waiting for deployment "tutorial-web" rollout to finish: 1 of 3 updated replicas are available...
+Waiting for deployment "tutorial-web" rollout to finish: 2 of 3 updated replicas are available...
+deployment "tutorial-web" successfully rolled out
+$ kubectl -n coursework-s9 get pods -o wide
+NAME                            READY   STATUS    RESTARTS   AGE   IP              NODE       NOMINATED NODE   READINESS GATES
+tutorial-client                 1/1     Running   0          2s    10.244.120.69   minikube   <none>           <none>
+tutorial-web-844d5b94d9-c5rdc   1/1     Running   0          1s    10.244.120.70   minikube   <none>           <none>
+tutorial-web-844d5b94d9-flhtq   1/1     Running   0          5s    10.244.120.68   minikube   <none>           <none>
+tutorial-web-844d5b94d9-q8gkq   1/1     Running   0          1s    10.244.120.71   minikube   <none>           <none>
+$ kubectl -n coursework-s9 set image deployment/tutorial-web nginx=nginx:stable-alpine
+deployment.apps/tutorial-web image updated
+$ kubectl -n coursework-s9 rollout status deployment/tutorial-web --timeout=240s
+Waiting for deployment "tutorial-web" rollout to finish: 1 out of 3 new replicas have been updated...
+Waiting for deployment "tutorial-web" rollout to finish: 1 out of 3 new replicas have been updated...
+Waiting for deployment "tutorial-web" rollout to finish: 1 out of 3 new replicas have been updated...
+Waiting for deployment "tutorial-web" rollout to finish: 2 out of 3 new replicas have been updated...
+Waiting for deployment "tutorial-web" rollout to finish: 2 out of 3 new replicas have been updated...
+Waiting for deployment "tutorial-web" rollout to finish: 2 out of 3 new replicas have been updated...
+Waiting for deployment "tutorial-web" rollout to finish: 2 out of 3 new replicas have been updated...
+Waiting for deployment "tutorial-web" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "tutorial-web" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "tutorial-web" rollout to finish: 1 old replicas are pending termination...
+deployment "tutorial-web" successfully rolled out
+$ kubectl -n coursework-s9 rollout history deployment/tutorial-web
+deployment.apps/tutorial-web
+REVISION  CHANGE-CAUSE
+1         <none>
+2         <none>
+
+$ kubectl -n coursework-s9 rollout undo deployment/tutorial-web
+deployment.apps/tutorial-web rolled back
+$ kubectl -n coursework-s9 rollout status deployment/tutorial-web --timeout=240s
+Waiting for deployment "tutorial-web" rollout to finish: 1 out of 3 new replicas have been updated...
+Waiting for deployment "tutorial-web" rollout to finish: 1 out of 3 new replicas have been updated...
+Waiting for deployment "tutorial-web" rollout to finish: 1 out of 3 new replicas have been updated...
+Waiting for deployment "tutorial-web" rollout to finish: 1 out of 3 new replicas have been updated...
+Waiting for deployment "tutorial-web" rollout to finish: 2 out of 3 new replicas have been updated...
+Waiting for deployment "tutorial-web" rollout to finish: 2 out of 3 new replicas have been updated...
+Waiting for deployment "tutorial-web" rollout to finish: 2 out of 3 new replicas have been updated...
+Waiting for deployment "tutorial-web" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "tutorial-web" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "tutorial-web" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "tutorial-web" rollout to finish: 1 old replicas are pending termination...
+deployment "tutorial-web" successfully rolled out
+$ kubectl -n coursework-s9 exec tutorial-client -- sh -c 'for attempt in $(seq 1 20); do wget -qT 3 -O- http://tutorial-web && exit 0; sleep 2; done; exit 1'
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+html { color-scheme: light dark; }
+body { width: 35em; margin: 0 auto;
+font-family: Tahoma, Verdana, Arial, sans-serif; }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+$ kubectl delete namespace coursework-s9 --wait=true
+namespace "coursework-s9" deleted

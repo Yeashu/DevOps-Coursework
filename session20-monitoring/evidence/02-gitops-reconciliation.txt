@@ -1,0 +1,243 @@
+$ gitops
+$ kubectl create namespace argocd --dry-run=client -o yaml
+$ kubectl apply -f -
+namespace/argocd created
+$ kubectl apply --server-side -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+customresourcedefinition.apiextensions.k8s.io/applications.argoproj.io serverside-applied
+customresourcedefinition.apiextensions.k8s.io/applicationsets.argoproj.io serverside-applied
+customresourcedefinition.apiextensions.k8s.io/appprojects.argoproj.io serverside-applied
+serviceaccount/argocd-application-controller serverside-applied
+serviceaccount/argocd-applicationset-controller serverside-applied
+serviceaccount/argocd-dex-server serverside-applied
+serviceaccount/argocd-notifications-controller serverside-applied
+serviceaccount/argocd-redis serverside-applied
+serviceaccount/argocd-repo-server serverside-applied
+serviceaccount/argocd-server serverside-applied
+role.rbac.authorization.k8s.io/argocd-application-controller serverside-applied
+role.rbac.authorization.k8s.io/argocd-applicationset-controller serverside-applied
+role.rbac.authorization.k8s.io/argocd-dex-server serverside-applied
+role.rbac.authorization.k8s.io/argocd-notifications-controller serverside-applied
+role.rbac.authorization.k8s.io/argocd-redis serverside-applied
+role.rbac.authorization.k8s.io/argocd-server serverside-applied
+clusterrole.rbac.authorization.k8s.io/argocd-application-controller serverside-applied
+clusterrole.rbac.authorization.k8s.io/argocd-applicationset-controller serverside-applied
+clusterrole.rbac.authorization.k8s.io/argocd-server serverside-applied
+rolebinding.rbac.authorization.k8s.io/argocd-application-controller serverside-applied
+rolebinding.rbac.authorization.k8s.io/argocd-applicationset-controller serverside-applied
+rolebinding.rbac.authorization.k8s.io/argocd-dex-server serverside-applied
+rolebinding.rbac.authorization.k8s.io/argocd-notifications-controller serverside-applied
+rolebinding.rbac.authorization.k8s.io/argocd-redis serverside-applied
+rolebinding.rbac.authorization.k8s.io/argocd-server serverside-applied
+clusterrolebinding.rbac.authorization.k8s.io/argocd-application-controller serverside-applied
+clusterrolebinding.rbac.authorization.k8s.io/argocd-applicationset-controller serverside-applied
+clusterrolebinding.rbac.authorization.k8s.io/argocd-server serverside-applied
+configmap/argocd-cm serverside-applied
+configmap/argocd-cmd-params-cm serverside-applied
+configmap/argocd-gpg-keys-cm serverside-applied
+configmap/argocd-notifications-cm serverside-applied
+configmap/argocd-rbac-cm serverside-applied
+configmap/argocd-ssh-known-hosts-cm serverside-applied
+configmap/argocd-tls-certs-cm serverside-applied
+secret/argocd-notifications-secret serverside-applied
+secret/argocd-secret serverside-applied
+service/argocd-applicationset-controller serverside-applied
+service/argocd-dex-server serverside-applied
+service/argocd-metrics serverside-applied
+service/argocd-notifications-controller-metrics serverside-applied
+service/argocd-redis serverside-applied
+service/argocd-repo-server serverside-applied
+service/argocd-server serverside-applied
+service/argocd-server-metrics serverside-applied
+deployment.apps/argocd-applicationset-controller serverside-applied
+deployment.apps/argocd-dex-server serverside-applied
+deployment.apps/argocd-notifications-controller serverside-applied
+deployment.apps/argocd-redis serverside-applied
+deployment.apps/argocd-repo-server serverside-applied
+deployment.apps/argocd-server serverside-applied
+statefulset.apps/argocd-application-controller serverside-applied
+networkpolicy.networking.k8s.io/argocd-application-controller-network-policy serverside-applied
+networkpolicy.networking.k8s.io/argocd-applicationset-controller-network-policy serverside-applied
+networkpolicy.networking.k8s.io/argocd-dex-server-network-policy serverside-applied
+networkpolicy.networking.k8s.io/argocd-notifications-controller-network-policy serverside-applied
+networkpolicy.networking.k8s.io/argocd-redis-network-policy serverside-applied
+networkpolicy.networking.k8s.io/argocd-repo-server-network-policy serverside-applied
+networkpolicy.networking.k8s.io/argocd-server-network-policy serverside-applied
+$ kubectl -n argocd rollout status deployment/argocd-repo-server --timeout=360s
+Waiting for deployment "argocd-repo-server" rollout to finish: 0 of 1 updated replicas are available...
+deployment "argocd-repo-server" successfully rolled out
+$ kubectl -n argocd rollout status statefulset/argocd-application-controller --timeout=360s
+partitioned roll out complete: 1 new pods have been updated...
+$ kubectl apply -f session20-monitoring/argocd-application.yaml
+application.argoproj.io/coursework-gitops created
+$ revision=coursework-gitops-38618896831-1
+$ git config user.name Yeashu
+$ git config user.email yeashusemwal@gmail.com
+$$ git show -s --format=%aI HEAD
+$ export GIT_AUTHOR_DATE=2026-10-10T18:00:00+05:30
+$ GIT_AUTHOR_DATE=2026-10-10T18:00:00+05:30
+$$ git show -s --format=%cI HEAD
+$ export GIT_COMMITTER_DATE=2026-10-10T18:00:00+05:30
+$ GIT_COMMITTER_DATE=2026-10-10T18:00:00+05:30
+$ python -
+$ git add session20-monitoring/gitops/app.yaml
+$ git diff --cached --quiet
+$ git push origin HEAD:coursework-gitops-38618896831-1
+remote:
+remote: Create a pull request for 'coursework-gitops-38618896831-1' on GitHub by visiting:
+remote:      https://github.com/Yeashu/DevOps-Coursework/pull/new/coursework-gitops-38618896831-1
+remote:
+To https://github.com/Yeashu/DevOps-Coursework
+ * [new branch]      HEAD -> coursework-gitops-38618896831-1
+$ kubectl -n argocd patch application coursework-gitops --type=merge -p '{"spec":{"source":{"targetRevision":"coursework-gitops-38618896831-1"}}}'
+application.argoproj.io/coursework-gitops patched
+$ healthy=0
+$$ seq 1 90
+$ for attempt in $(seq 1 90)
+$$ kubectl -n argocd get application coursework-gitops -o 'jsonpath={.status.sync.status}'
+$ sync=
+$$ kubectl -n argocd get application coursework-gitops -o 'jsonpath={.status.health.status}'
+$ health=
+$ [[ '' == Synced ]]
+$ sleep 5
+$ for attempt in $(seq 1 90)
+$$ kubectl -n argocd get application coursework-gitops -o 'jsonpath={.status.sync.status}'
+$ sync=Synced
+$$ kubectl -n argocd get application coursework-gitops -o 'jsonpath={.status.health.status}'
+$ health=Healthy
+$ [[ Synced == Synced ]]
+$ [[ Healthy == Healthy ]]
+$ healthy=1
+$ break
+$ test 1 = 1
+$ kubectl -n argocd get application coursework-gitops -o wide
+NAME                SYNC STATUS   HEALTH STATUS   REVISION                                   PROJECT
+coursework-gitops   Synced        Healthy         04fd248e36d982385edfec0a865c50e3647c807a   default
+$ kubectl -n coursework-s20 rollout status deployment/gitops-web --timeout=240s
+deployment "gitops-web" successfully rolled out
+$$ kubectl -n coursework-s20 get deployment gitops-web -o 'jsonpath={.status.readyReplicas}'
+$ test 2 = 2
+$ python -
+$ git config user.name Yeashu
+$ git config user.email yeashusemwal@gmail.com
+$$ git show -s --format=%aI HEAD
+$ export GIT_AUTHOR_DATE=2026-10-10T18:00:00+05:30
+$ GIT_AUTHOR_DATE=2026-10-10T18:00:00+05:30
+$$ git show -s --format=%cI HEAD
+$ export GIT_COMMITTER_DATE=2026-10-10T18:00:00+05:30
+$ GIT_COMMITTER_DATE=2026-10-10T18:00:00+05:30
+$ git add session20-monitoring/gitops/app.yaml
+$ git commit -m 'Demonstrate GitOps scaling [skip ci]'
+[main 419afb1] Demonstrate GitOps scaling [skip ci]
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+$ git push origin HEAD:coursework-gitops-38618896831-1
+To https://github.com/Yeashu/DevOps-Coursework
+   04fd248..419afb1  HEAD -> coursework-gitops-38618896831-1
+$ kubectl -n argocd annotate application coursework-gitops argocd.argoproj.io/refresh=hard --overwrite
+application.argoproj.io/coursework-gitops annotated
+$ converged=0
+$$ seq 1 60
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s20 get deployment gitops-web -o 'jsonpath={.status.readyReplicas}'
+$ replicas=2
+$ [[ 2 == 3 ]]
+$ sleep 5
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s20 get deployment gitops-web -o 'jsonpath={.status.readyReplicas}'
+$ replicas=3
+$ [[ 3 == 3 ]]
+$ converged=1
+$ break
+$ test 1 = 1
+$ kubectl -n coursework-s20 get deployment gitops-web
+NAME         READY   UP-TO-DATE   AVAILABLE   AGE
+gitops-web   3/3     3            3           10s
+$ kubectl -n coursework-s20 scale deployment/gitops-web --replicas=1
+deployment.apps/gitops-web scaled
+$ kubectl -n coursework-s20 get deployment gitops-web
+NAME         READY   UP-TO-DATE   AVAILABLE   AGE
+gitops-web   3/1     3            3           10s
+$ kubectl -n argocd annotate application coursework-gitops argocd.argoproj.io/refresh=hard --overwrite
+application.argoproj.io/coursework-gitops annotated
+$ healed=0
+$$ seq 1 60
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s20 get deployment gitops-web -o 'jsonpath={.status.readyReplicas}'
+$ replicas=1
+$$ kubectl -n coursework-s20 get deployment gitops-web -o 'jsonpath={.spec.replicas}'
+$ desired=1
+$ [[ 1 == 3 ]]
+$ sleep 5
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s20 get deployment gitops-web -o 'jsonpath={.status.readyReplicas}'
+$ replicas=3
+$$ kubectl -n coursework-s20 get deployment gitops-web -o 'jsonpath={.spec.replicas}'
+$ desired=3
+$ [[ 3 == 3 ]]
+$ [[ 3 == 3 ]]
+$ healed=1
+$ break
+$ test 1 = 1
+$ kubectl -n coursework-s20 get deployment gitops-web
+NAME         READY   UP-TO-DATE   AVAILABLE   AGE
+gitops-web   3/3     3            3           16s
+$ echo 'Git change scaled two replicas to three; direct cluster drift was reconciled back to three.'
+Git change scaled two replicas to three; direct cluster drift was reconciled back to three.
+$ kubectl -n coursework-s20 get configmap gitops-page -o yaml
+apiVersion: v1
+data:
+  index.html: 'Managed from Git: coursework GitOps demo'
+kind: ConfigMap
+metadata:
+  annotations:
+    argocd.argoproj.io/tracking-id: coursework-gitops:/ConfigMap:coursework-s20/gitops-page
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","data":{"index.html":"Managed from Git: coursework GitOps demo"},"kind":"ConfigMap","metadata":{"annotations":{"argocd.argoproj.io/tracking-id":"coursework-gitops:/ConfigMap:coursework-s20/gitops-page"},"name":"gitops-page","namespace":"coursework-s20"}}
+  creationTimestamp: "2026-10-14T18:57:15Z"
+  name: gitops-page
+  namespace: coursework-s20
+  resourceVersion: "1434"
+  uid: e837fdc6-16dd-4e0b-b552-0ef8a1212320
+$ kubectl -n coursework-s20 patch configmap gitops-page --type=merge -p '{"data":{"index.html":"DRIFT introduced directly in the cluster"}}'
+configmap/gitops-page patched
+$ kubectl -n coursework-s20 get configmap gitops-page -o 'jsonpath={.data.index\.html}{"\n"}'
+DRIFT introduced directly in the cluster
+$ kubectl -n argocd annotate application coursework-gitops argocd.argoproj.io/refresh=hard --overwrite
+application.argoproj.io/coursework-gitops annotated
+$ restored=0
+$$ seq 1 60
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s20 get configmap gitops-page -o 'jsonpath={.data.index\.html}'
+$ page='DRIFT introduced directly in the cluster'
+$ [[ DRIFT introduced directly in the cluster == \M\a\n\a\g\e\d\ \f\r\o\m\ \G\i\t\:\ \c\o\u\r\s\e\w\o\r\k\ \G\i\t\O\p\s\ \d\e\m\o ]]
+$ sleep 5
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s20 get configmap gitops-page -o 'jsonpath={.data.index\.html}'
+$ page='Managed from Git: coursework GitOps demo'
+$ [[ Managed from Git: coursework GitOps demo == \M\a\n\a\g\e\d\ \f\r\o\m\ \G\i\t\:\ \c\o\u\r\s\e\w\o\r\k\ \G\i\t\O\p\s\ \d\e\m\o ]]
+$ restored=1
+$ break
+$ test 1 = 1
+$ kubectl -n coursework-s20 get configmap gitops-page -o yaml
+apiVersion: v1
+data:
+  index.html: 'Managed from Git: coursework GitOps demo'
+kind: ConfigMap
+metadata:
+  annotations:
+    argocd.argoproj.io/tracking-id: coursework-gitops:/ConfigMap:coursework-s20/gitops-page
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","data":{"index.html":"Managed from Git: coursework GitOps demo"},"kind":"ConfigMap","metadata":{"annotations":{"argocd.argoproj.io/tracking-id":"coursework-gitops:/ConfigMap:coursework-s20/gitops-page"},"name":"gitops-page","namespace":"coursework-s20"}}
+  creationTimestamp: "2026-10-14T18:57:15Z"
+  name: gitops-page
+  namespace: coursework-s20
+  resourceVersion: "1659"
+  uid: e837fdc6-16dd-4e0b-b552-0ef8a1212320
+$ kubectl -n argocd get application coursework-gitops -o wide
+NAME                SYNC STATUS   HEALTH STATUS   REVISION                                   PROJECT
+coursework-gitops   Synced        Healthy         419afb1ae61d0fdd42818856c67f15ddc4ce2404   default
+$ kubectl -n coursework-s20 run gitops-client --rm -i --restart=Never --image=busybox:1.36 --command -- wget -qO- http://gitops-web
+Managed from Git: coursework GitOps demoAll commands and output from this session will be recorded in container logs, including credentials and sensitive information passed through the command prompt.
+If you don't see a command prompt, try pressing enter.
+pod "gitops-client" deleted from coursework-s20 namespace
+$ echo 'Argo CD restored Git-defined configuration after live drift.'
+Argo CD restored Git-defined configuration after live drift.

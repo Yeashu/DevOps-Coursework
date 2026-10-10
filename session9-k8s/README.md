@@ -52,3 +52,25 @@ Kubernetes installation and cluster lifecycle. These images render the recorded 
 ### 04 minikube stop
 
 ![04 minikube stop](screenshots/04-minikube-stop.png)
+
+## Recorded execution evidence
+
+These PNGs render the saved output of real commands. Each image links to its complete transcript.
+
+![basics-tutorial, page 1](screenshots/basics-tutorial-01.png)
+
+![basics-tutorial, page 2](screenshots/basics-tutorial-02.png)
+
+![basics-tutorial, page 3](screenshots/basics-tutorial-03.png)
+
+![basics-tutorial, page 4](screenshots/basics-tutorial-04.png)
+
+[Complete commands and output: basics-tutorial.txt](evidence/basics-tutorial.txt)
+
+![cluster-lifecycle, page 1](screenshots/cluster-lifecycle-01.png)
+
+![cluster-lifecycle, page 2](screenshots/cluster-lifecycle-02.png)
+
+[Complete commands and output: cluster-lifecycle.txt](evidence/cluster-lifecycle.txt)
+
+[Verified workflow execution](https://github.com/Yeashu/DevOps-Coursework/actions/runs/38618896831)

@@ -197,3 +197,43 @@ ConfigMaps, Secrets and Ingress. These images render the recorded command output
 ### 14 full demo
 
 ![14 full demo](screenshots/14-full-demo.png)
+
+## Recorded execution evidence
+
+These PNGs render the saved output of real commands. Each image links to its complete transcript.
+
+![config-and-secret, page 1](screenshots/config-and-secret-01.png)
+
+[Complete commands and output: config-and-secret.txt](evidence/config-and-secret.txt)
+
+![full-demo-cleanup, page 1](screenshots/full-demo-cleanup-01.png)
+
+[Complete commands and output: full-demo-cleanup.txt](evidence/full-demo-cleanup.txt)
+
+![full-demo-run, page 1](screenshots/full-demo-run-01.png)
+
+[Complete commands and output: full-demo-run.txt](evidence/full-demo-run.txt)
+
+![hybrid-hosts-verified, page 1](screenshots/hybrid-hosts-verified-01.png)
+
+[Complete commands and output: hybrid-hosts-verified.txt](evidence/hybrid-hosts-verified.txt)
+
+![ingress-and-tls, page 1](screenshots/ingress-and-tls-01.png)
+
+![ingress-and-tls, page 2](screenshots/ingress-and-tls-02.png)
+
+[Complete commands and output: ingress-and-tls.txt](evidence/ingress-and-tls.txt)
+
+![troubleshooting, page 1](screenshots/troubleshooting-01.png)
+
+![troubleshooting, page 2](screenshots/troubleshooting-02.png)
+
+![troubleshooting, page 3](screenshots/troubleshooting-03.png)
+
+![troubleshooting, page 4](screenshots/troubleshooting-04.png)
+
+![troubleshooting, page 5](screenshots/troubleshooting-05.png)
+
+[Complete commands and output: troubleshooting.txt](evidence/troubleshooting.txt)
+
+[Verified workflow execution](https://github.com/Yeashu/DevOps-Coursework/actions/runs/38618896831)

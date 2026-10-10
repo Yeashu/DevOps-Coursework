@@ -44,3 +44,43 @@ The runner waits for `Synced` and `Healthy`, changes the ConfigMap directly to i
 ## Mini project: change desired state in Git
 
 The GitOps path includes a Namespace, a two-replica Deployment, a Service and the page ConfigMap. The lab commits a change from two to three replicas in Git, refreshes Argo CD and verifies three ready Pods. It then scales the live Deployment to one replica and verifies self-healing restores the Git-defined three replicas. The Git change and direct-cluster drift are separate checks.
+
+## Recorded execution evidence
+
+These PNGs render the saved output of real commands. Each image links to its complete transcript.
+
+![01-monitoring-alerts, page 1](screenshots/01-monitoring-alerts-01.png)
+
+![01-monitoring-alerts, page 2](screenshots/01-monitoring-alerts-02.png)
+
+![01-monitoring-alerts, page 3](screenshots/01-monitoring-alerts-03.png)
+
+![01-monitoring-alerts, page 4](screenshots/01-monitoring-alerts-04.png)
+
+![01-monitoring-alerts, page 5](screenshots/01-monitoring-alerts-05.png)
+
+![01-monitoring-alerts, page 6](screenshots/01-monitoring-alerts-06.png)
+
+![01-monitoring-alerts, page 7](screenshots/01-monitoring-alerts-07.png)
+
+[Complete commands and output: 01-monitoring-alerts.txt](evidence/01-monitoring-alerts.txt)
+
+![02-gitops-reconciliation, page 1](screenshots/02-gitops-reconciliation-01.png)
+
+![02-gitops-reconciliation, page 2](screenshots/02-gitops-reconciliation-02.png)
+
+![02-gitops-reconciliation, page 3](screenshots/02-gitops-reconciliation-03.png)
+
+![02-gitops-reconciliation, page 4](screenshots/02-gitops-reconciliation-04.png)
+
+![02-gitops-reconciliation, page 5](screenshots/02-gitops-reconciliation-05.png)
+
+[Complete commands and output: 02-gitops-reconciliation.txt](evidence/02-gitops-reconciliation.txt)
+
+### Live Grafana dashboard
+
+This screenshot was captured from the running Grafana dashboard.
+
+![Live Grafana dashboard](screenshots/grafana-dashboard.png)
+
+[Verified workflow execution](https://github.com/Yeashu/DevOps-Coursework/actions/runs/38618896831)
