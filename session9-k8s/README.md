@@ -28,3 +28,27 @@ These commands were run in a temporary Minikube v1.39.0 / Kubernetes v1.37.0 clu
 A deployment sent through `kubectl` reaches the API server, which persists the desired state in etcd. Controllers create the needed Pods; the scheduler assigns nodes; each node's kubelet asks its runtime to start containers and reports status through the API. Service traffic reaches healthy Pod endpoints using the cluster's networking implementation. Minikube commonly hosts both control-plane and worker components on one node.
 
 Submit the raw GitHub URL for this file after pushing the completed screenshots and command output.
+
+## Kubernetes Basics hands-on
+
+The [Kubernetes Basics tutorial](https://kubernetes.io/docs/tutorials/kubernetes-basics/) covers deploying, exploring, exposing, scaling and updating an application. The runner follows those stages with an Nginx web application: create a Deployment, inspect Pods and logs, expose a Service, make an in-cluster HTTP request, scale to three replicas, update the image and undo the rollout. Exact commands and results are saved in the recorded evidence below.
+
+## Screenshots
+
+Kubernetes installation and cluster lifecycle. These images render the recorded command output; the complete transcripts are linked in this README.
+
+### 01 version check
+
+![01 version check](screenshots/01-version-check.png)
+
+### 02 minikube start
+
+![02 minikube start](screenshots/02-minikube-start.png)
+
+### 03 minikube status
+
+![03 minikube status](screenshots/03-minikube-status.png)
+
+### 04 minikube stop
+
+![04 minikube stop](screenshots/04-minikube-stop.png)

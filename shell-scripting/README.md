@@ -36,3 +36,11 @@ The complete real execution is saved in
 - `touch` creates an empty file, while `ps > file` replaces that file with
   the current process listing.
 - `set -euo pipefail` makes failures and unset variables visible early.
+
+## Recorded execution evidence
+
+These PNGs render genuine saved command output. Full transcripts are linked below.
+
+![system-info-output-01](screenshots/system-info-output-01.png)
+
+[Commands and output: system-info-output.txt](evidence/system-info-output.txt)

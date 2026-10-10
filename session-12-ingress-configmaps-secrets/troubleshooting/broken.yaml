@@ -1,0 +1,48 @@
+{
+  "apiVersion": "v1",
+  "kind": "Pod",
+  "metadata": {
+    "name": "repair-web",
+    "labels": {
+      "app": "repair-web"
+    }
+  },
+  "spec": {
+    "containers": [
+      {
+        "name": "web",
+        "image": "nginx:stable-alpine",
+        "env": [
+          {
+            "name": "APP_MODE",
+            "valueFrom": {
+              "configMapKeyRef": {
+                "name": "repair-config",
+                "key": "APP_MODE"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
+---
+{
+  "apiVersion": "v1",
+  "kind": "Service",
+  "metadata": {
+    "name": "repair-web"
+  },
+  "spec": {
+    "selector": {
+      "app": "wrong-label"
+    },
+    "ports": [
+      {
+        "port": 80,
+        "targetPort": 80
+      }
+    ]
+  }
+}

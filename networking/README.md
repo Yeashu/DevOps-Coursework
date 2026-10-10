@@ -29,3 +29,17 @@ finally packet capture. This narrows the failing layer without starting with
 the most invasive tool.
 
 ![Networking terminal evidence](evidence/networking-output.svg)
+
+## Recorded execution evidence
+
+These PNGs render genuine saved command output. Full transcripts are linked below.
+
+![networking-output-01](screenshots/networking-output-01.png)
+
+![networking-output-02](screenshots/networking-output-02.png)
+
+![networking-output-03](screenshots/networking-output-03.png)
+
+![networking-output-04](screenshots/networking-output-04.png)
+
+[Commands and output: networking-output.txt](evidence/networking-output.txt)

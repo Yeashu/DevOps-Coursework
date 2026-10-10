@@ -1,0 +1,109 @@
+{
+  "apiVersion": "v1",
+  "kind": "ConfigMap",
+  "metadata": {
+    "name": "prometheus-config"
+  },
+  "data": {
+    "prometheus.yml": "global:\n  scrape_interval: 5s\n  evaluation_interval: 5s\nrule_files:\n  - /etc/prometheus/alerts.yaml\nscrape_configs:\n  - job_name: application\n    static_configs:\n      - targets: ['session17-python:80']\n  - job_name: node\n    static_configs:\n      - targets: ['node-exporter:9100']\n  - job_name: prometheus\n    static_configs:\n      - targets: ['localhost:9090']\n",
+    "alerts.yaml": "groups:\n  - name: coursework\n    rules:\n      - alert: ApplicationUnavailable\n        expr: up{job=\"application\"} == 0\n        for: 10s\n        labels:\n          severity: warning\n        annotations:\n          summary: Application scrape target is unavailable\n"
+  }
+}
+---
+{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "prometheus"
+  },
+  "spec": {
+    "replicas": 1,
+    "selector": {
+      "matchLabels": {
+        "app": "prometheus"
+      }
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "prometheus"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "name": "app",
+            "image": "prom/prometheus:latest",
+            "ports": [
+              {
+                "containerPort": 9090
+              }
+            ],
+            "args": [
+              "--config.file=/etc/prometheus/prometheus.yml",
+              "--storage.tsdb.path=/prometheus"
+            ],
+            "resources": {
+              "requests": {
+                "cpu": "100m",
+                "memory": "128Mi"
+              },
+              "limits": {
+                "cpu": "500m",
+                "memory": "384Mi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "config",
+                "mountPath": "/etc/prometheus"
+              },
+              {
+                "name": "data",
+                "mountPath": "/prometheus"
+              }
+            ],
+            "readinessProbe": {
+              "httpGet": {
+                "path": "/-/ready",
+                "port": 9090
+              },
+              "periodSeconds": 3
+            }
+          }
+        ],
+        "volumes": [
+          {
+            "name": "config",
+            "configMap": {
+              "name": "prometheus-config"
+            }
+          },
+          {
+            "name": "data",
+            "emptyDir": {}
+          }
+        ]
+      }
+    }
+  }
+}
+---
+{
+  "apiVersion": "v1",
+  "kind": "Service",
+  "metadata": {
+    "name": "prometheus"
+  },
+  "spec": {
+    "selector": {
+      "app": "prometheus"
+    },
+    "ports": [
+      {
+        "port": 9090,
+        "targetPort": 9090
+      }
+    ]
+  }
+}

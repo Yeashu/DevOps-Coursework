@@ -1,0 +1,11 @@
+replicaCount: 1
+image:
+  repository: nginx
+  tag: stable-alpine
+message: Notes version one
+service:
+  port: 80
+  nodePort: 30090
+app:
+  name: notes-app
+  environment: development

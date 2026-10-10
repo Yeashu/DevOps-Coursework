@@ -76,3 +76,13 @@ command filters entries for one service and `-f` follows new entries.
 Full practice output: [`evidence/linux-output.txt`](evidence/linux-output.txt).
 
 ![Linux terminal evidence](evidence/linux-output.svg)
+
+## Recorded execution evidence
+
+These PNGs render genuine saved command output. Full transcripts are linked below.
+
+![linux-output-01](screenshots/linux-output-01.png)
+
+![linux-output-02](screenshots/linux-output-02.png)
+
+[Commands and output: linux-output.txt](evidence/linux-output.txt)

@@ -139,3 +139,48 @@ On this macOS Docker driver, direct `<minikube-ip>:30080` access timed out, whil
 ```bash
 kubectl delete -f 01-clusterip/ -f 02-nodeport/ -f 03-loadbalancer/ -f 04-externalname/ -f 05-headless/ -f 06-no-selector/ --ignore-not-found
 ```
+
+## Required comparisons and DNS documentation
+
+- [FQDN](fqdn/README.md)
+- [CoreDNS](coredns/README.md)
+
+A ReplicaSet maintains a desired replica count for matching Pods. A Deployment manages ReplicaSets and coordinates rollout history, rolling updates and rollback. Scaling a Deployment changes the active ReplicaSet; using a ReplicaSet alone does not provide Deployment rollout management.
+
+A Service selects matching ready Pods through EndpointSlices and provides a stable destination for traffic. It does not create or restart Pods. A ReplicaSet maintains Pods but does not supply a stable client endpoint. Service traffic reaches the selected Pod's targetPort through the cluster network.
+
+## Screenshots
+
+Services and DNS. These images render the recorded command output; the complete transcripts are linked in this README.
+
+### 02 clusterip
+
+![02 clusterip](screenshots/02-clusterip.png)
+
+### 03 nodeport
+
+![03 nodeport](screenshots/03-nodeport.png)
+
+### 04 loadbalancer
+
+![04 loadbalancer](screenshots/04-loadbalancer.png)
+
+### 05 externalname
+
+![05 externalname](screenshots/05-externalname.png)
+
+### 06 headless
+
+![06 headless](screenshots/06-headless.png)
+
+### 07 selector free
+
+![07 selector free](screenshots/07-selector-free.png)
+
+### 08 coredns
+
+![08 coredns](screenshots/08-coredns.png)
+
+### 12 minikube networking
+
+![12 minikube networking](screenshots/12-minikube-networking.png)

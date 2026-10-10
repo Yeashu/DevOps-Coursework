@@ -189,3 +189,55 @@ kubectl delete -f session10-k8s-core-objects/04-recreate/deployment-v1.yaml
 Recreate intentionally leaves a period with no ready endpoints. Capture real terminal output and screenshots for each task after running the lab.
 
 The [Recreate run](evidence/recreate.txt) captured four v1 responses, two failed requests during replacement, and 39 v2 responses. [Pod output](evidence/pods.txt), [lifecycle output](evidence/pod-lifecycle.txt), [controller output](evidence/controllers.txt), and [rolling update and troubleshooting output](evidence/rolling-troubleshooting.txt) cover the other executed labs.
+
+## Screenshots
+
+Pods, controllers and deployment strategies. These images render the recorded command output; the complete transcripts are linked in this README.
+
+### 01 cluster health
+
+![01 cluster health](screenshots/01-cluster-health.png)
+
+### 02 pod running
+
+![02 pod running](screenshots/02-pod-running.png)
+
+### 03 image pull error
+
+![03 image pull error](screenshots/03-image-pull-error.png)
+
+### 04 hello lifecycle
+
+![04 hello lifecycle](screenshots/04-hello-lifecycle.png)
+
+### 05 pod lifecycle
+
+![05 pod lifecycle](screenshots/05-pod-lifecycle.png)
+
+### 06 replicaset statefulset
+
+![06 replicaset statefulset](screenshots/06-replicaset-statefulset.png)
+
+### 07 daemonset
+
+![07 daemonset](screenshots/07-daemonset.png)
+
+### 08 rolling update
+
+![08 rolling update](screenshots/08-rolling-update.png)
+
+### 09 troubleshooting
+
+![09 troubleshooting](screenshots/09-troubleshooting.png)
+
+### 11 blue green cutover
+
+![11 blue green cutover](screenshots/11-blue-green-cutover.png)
+
+### 12 canary traffic split
+
+![12 canary traffic split](screenshots/12-canary-traffic-split.png)
+
+### 13 recreate downtime outage
+
+![13 recreate downtime outage](screenshots/13-recreate-downtime-outage.png)

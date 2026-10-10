@@ -1,0 +1,119 @@
+{
+  "apiVersion": "v1",
+  "kind": "ConfigMap",
+  "metadata": {
+    "name": "grafana-config"
+  },
+  "data": {
+    "datasources.yaml": "apiVersion: 1\ndatasources:\n  - name: Prometheus\n    type: prometheus\n    uid: prometheus\n    access: proxy\n    url: http://prometheus:9090\n    isDefault: true\n",
+    "dashboards.yaml": "apiVersion: 1\nproviders:\n  - name: coursework\n    folder: Coursework\n    type: file\n    options:\n      path: /var/lib/grafana/dashboards\n",
+    "coursework.json": "{\"title\": \"DevOps Coursework\", \"uid\": \"coursework\", \"schemaVersion\": 39, \"version\": 1, \"refresh\": \"5s\", \"panels\": [{\"id\": 1, \"type\": \"timeseries\", \"title\": \"Application health\", \"datasource\": {\"type\": \"prometheus\", \"uid\": \"prometheus\"}, \"gridPos\": {\"x\": 0, \"y\": 0, \"w\": 12, \"h\": 8}, \"targets\": [{\"refId\": \"A\", \"expr\": \"up{job=\\\"application\\\"}\"}]}, {\"id\": 2, \"type\": \"timeseries\", \"title\": \"HTTP requests\", \"datasource\": {\"type\": \"prometheus\", \"uid\": \"prometheus\"}, \"gridPos\": {\"x\": 12, \"y\": 0, \"w\": 12, \"h\": 8}, \"targets\": [{\"refId\": \"A\", \"expr\": \"coursework_http_requests_total\"}]}, {\"id\": 3, \"type\": \"timeseries\", \"title\": \"CPU utilization (%)\", \"datasource\": {\"type\": \"prometheus\", \"uid\": \"prometheus\"}, \"gridPos\": {\"x\": 0, \"y\": 8, \"w\": 12, \"h\": 8}, \"targets\": [{\"refId\": \"A\", \"expr\": \"100 * (1 - avg(rate(node_cpu_seconds_total{mode=\\\"idle\\\"}[1m])))\"}]}, {\"id\": 4, \"type\": \"timeseries\", \"title\": \"Memory utilization (%)\", \"datasource\": {\"type\": \"prometheus\", \"uid\": \"prometheus\"}, \"gridPos\": {\"x\": 12, \"y\": 8, \"w\": 12, \"h\": 8}, \"targets\": [{\"refId\": \"A\", \"expr\": \"100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)\"}]}]}"
+  }
+}
+---
+{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "grafana"
+  },
+  "spec": {
+    "replicas": 1,
+    "selector": {
+      "matchLabels": {
+        "app": "grafana"
+      }
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "grafana"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "name": "app",
+            "image": "grafana/grafana:latest",
+            "ports": [
+              {
+                "containerPort": 3000
+              }
+            ],
+            "env": [
+              {
+                "name": "GF_AUTH_ANONYMOUS_ENABLED",
+                "value": "true"
+              },
+              {
+                "name": "GF_AUTH_ANONYMOUS_ORG_ROLE",
+                "value": "Viewer"
+              }
+            ],
+            "resources": {
+              "requests": {
+                "cpu": "100m",
+                "memory": "128Mi"
+              },
+              "limits": {
+                "cpu": "500m",
+                "memory": "384Mi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "config",
+                "mountPath": "/etc/grafana/provisioning/datasources/datasources.yaml",
+                "subPath": "datasources.yaml"
+              },
+              {
+                "name": "config",
+                "mountPath": "/etc/grafana/provisioning/dashboards/dashboards.yaml",
+                "subPath": "dashboards.yaml"
+              },
+              {
+                "name": "config",
+                "mountPath": "/var/lib/grafana/dashboards/coursework.json",
+                "subPath": "coursework.json"
+              }
+            ],
+            "readinessProbe": {
+              "httpGet": {
+                "path": "/api/health",
+                "port": 3000
+              },
+              "periodSeconds": 3
+            }
+          }
+        ],
+        "volumes": [
+          {
+            "name": "config",
+            "configMap": {
+              "name": "grafana-config"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
+---
+{
+  "apiVersion": "v1",
+  "kind": "Service",
+  "metadata": {
+    "name": "grafana"
+  },
+  "spec": {
+    "selector": {
+      "app": "grafana"
+    },
+    "ports": [
+      {
+        "port": 3000,
+        "targetPort": 3000
+      }
+    ]
+  }
+}

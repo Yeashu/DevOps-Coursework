@@ -1,0 +1,29 @@
+{
+  "apiVersion": "v1",
+  "kind": "ConfigMap",
+  "metadata": {
+    "name": "repair-config"
+  },
+  "data": {
+    "APP_MODE": "verified"
+  }
+}
+---
+{
+  "apiVersion": "v1",
+  "kind": "Service",
+  "metadata": {
+    "name": "repair-web"
+  },
+  "spec": {
+    "selector": {
+      "app": "repair-web"
+    },
+    "ports": [
+      {
+        "port": 80,
+        "targetPort": 80
+      }
+    ]
+  }
+}

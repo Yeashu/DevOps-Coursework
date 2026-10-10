@@ -67,3 +67,15 @@ branch.
 
 The different commit hashes are expected: cherry-pick creates a new commit
 with the selected patch on the current branch.
+
+## Recorded execution evidence
+
+These PNGs render genuine saved command output. Full transcripts are linked below.
+
+![local-git-practice-01](screenshots/local-git-practice-01.png)
+
+![local-git-practice-02](screenshots/local-git-practice-02.png)
+
+![local-git-practice-03](screenshots/local-git-practice-03.png)
+
+[Commands and output: local-git-practice.txt](evidence/local-git-practice.txt)

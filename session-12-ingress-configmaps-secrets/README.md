@@ -139,3 +139,61 @@ kubectl delete -f 01-configmap/ -f 02-secret/ --ignore-not-found
 ```
 
 The cleanup script removes full-demo resources. The last commands remove the separate exercises. Save real screenshots of each task's command and result once executed.
+
+## Troubleshooting: configuration and Service selection
+
+[The broken exercise](troubleshooting/broken.yaml) references a missing ConfigMap and gives the Service an incorrect selector. A missing configuration value prevents container creation; the label mismatch independently prevents a healthy endpoint from being selected. Inspect Pod events and the Service selector before making changes.
+
+[The repair](troubleshooting/fixed.yaml) creates the required configuration and corrects the selector. The runner records before/after Pod state, verifies APP_MODE inside the container, inspects EndpointSlices and checks HTTP connectivity.
+
+## Screenshots
+
+ConfigMaps, Secrets and Ingress. These images render the recorded command output; the complete transcripts are linked in this README.
+
+### 01 configmap
+
+![01 configmap](screenshots/01-configmap.png)
+
+### 02 configmap update
+
+![02 configmap update](screenshots/02-configmap-update.png)
+
+### 03 secret
+
+![03 secret](screenshots/03-secret.png)
+
+### 04 newline
+
+![04 newline](screenshots/04-newline.png)
+
+### 06 combined injection
+
+![06 combined injection](screenshots/06-combined-injection.png)
+
+### 08 ingress controller
+
+![08 ingress controller](screenshots/08-ingress-controller.png)
+
+### 09 local routing
+
+![09 local routing](screenshots/09-local-routing.png)
+
+### 10 path routing
+
+![10 path routing](screenshots/10-path-routing.png)
+
+### 11 virtual hosts
+
+![11 virtual hosts](screenshots/11-virtual-hosts.png)
+
+### 12 hybrid ingress
+
+![12 hybrid ingress](screenshots/12-hybrid-ingress.png)
+
+### 13 tls
+
+![13 tls](screenshots/13-tls.png)
+
+### 14 full demo
+
+![14 full demo](screenshots/14-full-demo.png)

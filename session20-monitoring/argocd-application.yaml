@@ -1,0 +1,29 @@
+{
+  "apiVersion": "argoproj.io/v1alpha1",
+  "kind": "Application",
+  "metadata": {
+    "name": "coursework-gitops",
+    "namespace": "argocd"
+  },
+  "spec": {
+    "project": "default",
+    "source": {
+      "repoURL": "https://github.com/Yeashu/DevOps-Coursework.git",
+      "targetRevision": "main",
+      "path": "session20-monitoring/gitops"
+    },
+    "destination": {
+      "server": "https://kubernetes.default.svc",
+      "namespace": "coursework-s20"
+    },
+    "syncPolicy": {
+      "automated": {
+        "prune": true,
+        "selfHeal": true
+      },
+      "syncOptions": [
+        "CreateNamespace=true"
+      ]
+    }
+  }
+}

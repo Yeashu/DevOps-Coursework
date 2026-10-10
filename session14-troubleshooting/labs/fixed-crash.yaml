@@ -1,0 +1,23 @@
+{
+  "apiVersion": "v1",
+  "kind": "Pod",
+  "metadata": {
+    "name": "crash-demo",
+    "labels": {
+      "app": "crash-demo"
+    }
+  },
+  "spec": {
+    "containers": [
+      {
+        "name": "app",
+        "image": "busybox:1.36",
+        "command": [
+          "sh",
+          "-c",
+          "echo \"application started\"; sleep 3600"
+        ]
+      }
+    ]
+  }
+}

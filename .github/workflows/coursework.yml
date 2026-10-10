@@ -1,0 +1,1519 @@
+name: CI/CD, DevSecOps and coursework evidence
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: coursework-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  kubernetes:
+    name: Kubernetes and Helm (${{ matrix.lab }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - lab: session13
+            sections: session13-storage-hpa-probes
+          - lab: session14
+            sections: session14-troubleshooting
+          - lab: session15
+            sections: session15-helm
+          - lab: basics
+            sections: linux-fundamentals git-and-github session9-k8s session-12-ingress-configmaps-secrets
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install lab tools and start Kubernetes
+        run: |
+          python -m pip install Pillow PyYAML
+          curl -fsSL https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 -o /tmp/minikube
+          sudo install /tmp/minikube /usr/local/bin/minikube
+          helm_release=v3.17.3
+          curl -fsSL "https://get.helm.sh/helm-${helm_release}-linux-amd64.tar.gz" -o /tmp/helm.tar.gz
+          tar -xzf /tmp/helm.tar.gz -C /tmp
+          sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
+          minikube start --driver=docker --cpus=2 --memory=4096 --cni=calico
+          minikube addons enable metrics-server
+          kubectl -n kube-system rollout status deployment/metrics-server --timeout=240s
+          kubectl get nodes -o wide
+      - name: Execute lab and record actual output
+        run: |
+          set -euo pipefail
+
+          repo_root="$GITHUB_WORKSPACE"
+          cd "$repo_root"
+
+          record() {
+            local destination="$1"
+            shift
+            mkdir -p "$(dirname "$destination")"
+            (
+              set -euo pipefail
+              PS4='$ '
+              set -x
+              "$@"
+            ) > "$destination" 2>&1
+            cat "$destination"
+          }
+
+          wait_ready() {
+            kubectl -n "$ns" wait --for=condition=Ready "pod/$1" --timeout=240s
+          }
+
+          expect_error() {
+            local expected="$1"
+            shift
+            local result
+            if result=$("$@" 2>&1); then
+              printf '%s\n' "$result"
+              echo "Expected a failure but the command succeeded." >&2
+              return 1
+            fi
+            printf '%s\n' "$result"
+            [[ "$result" == *"$expected"* ]]
+          }
+
+          publish_image() {
+          set -euo pipefail
+          source_image="$1"
+          package="$2"
+          output="$3"
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          destination="ghcr.io/$owner/$package:${GITHUB_SHA}"
+          mkdir -p "$(dirname "$output")"
+          printf '%s' "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker tag "$source_image" "$destination"
+          {
+            printf '$ docker push %s\n' "$destination"
+            docker push "$destination"
+            printf '$ docker image inspect %s --format {{.Id}}\n' "$destination"
+            docker image inspect "$destination" --format '{{.Id}}'
+          } > "$output" 2>&1
+          cat "$output"
+
+          }
+
+          case "${{ matrix.lab }}" in
+          session13)
+          ns=coursework-s13
+          section=session13-storage-hpa-probes
+          kubectl create namespace "$ns" --dry-run=client -o yaml | kubectl apply -f -
+
+          volumes() {
+            kubectl -n "$ns" apply -f "$section/01-kubernetes-volumes/emptydir-demo.yaml"
+            wait_ready emptydir-demo
+            kubectl -n "$ns" exec emptydir-demo -- sh -c 'echo emptydir-marker > /data/marker; cat /data/marker'
+            kubectl -n "$ns" delete pod emptydir-demo --wait=true
+            kubectl -n "$ns" apply -f "$section/01-kubernetes-volumes/emptydir-demo.yaml"
+            wait_ready emptydir-demo
+            kubectl -n "$ns" exec emptydir-demo -- sh -c 'test ! -f /data/marker && echo "emptyDir marker disappeared with old Pod"'
+            kubectl -n "$ns" apply -f "$section/01-kubernetes-volumes/hostpath-demo.yaml"
+            wait_ready hostpath-demo
+            kubectl -n "$ns" exec hostpath-demo -- sh -c 'echo hostpath-marker > /data/marker'
+            kubectl -n "$ns" delete pod hostpath-demo --wait=true
+            kubectl -n "$ns" apply -f "$section/01-kubernetes-volumes/hostpath-demo.yaml"
+            wait_ready hostpath-demo
+            kubectl -n "$ns" exec hostpath-demo -- sh -c 'grep hostpath-marker /data/marker'
+            kubectl -n "$ns" apply -f "$section/01-kubernetes-volumes/static-storage.yaml"
+            wait_ready persistent-demo
+            kubectl get pv coursework-s13-pv
+            kubectl -n "$ns" get pvc static-data
+            kubectl -n "$ns" exec persistent-demo -- sh -c 'echo persistent-marker > /data/marker'
+            kubectl -n "$ns" delete pod persistent-demo --wait=true
+            kubectl -n "$ns" apply -f "$section/01-kubernetes-volumes/static-storage.yaml"
+            wait_ready persistent-demo
+            kubectl -n "$ns" exec persistent-demo -- grep persistent-marker /data/marker
+            kubectl get storageclass -o wide
+            kubectl -n "$ns" apply -f "$section/01-kubernetes-volumes/dynamic-storage.yaml"
+            wait_ready dynamic-demo
+            dynamic_pv=$(kubectl -n "$ns" get pvc dynamic-data -o jsonpath='{.spec.volumeName}')
+            kubectl get pv "$dynamic_pv" -o wide
+            kubectl -n "$ns" delete pod dynamic-demo
+            kubectl -n "$ns" delete pvc dynamic-data
+            kubectl wait --for=delete "pv/$dynamic_pv" --timeout=120s
+            echo 'Dynamic Delete-policy PV removed after claim deletion.'
+          }
+
+          autoscaling() {
+            kubectl -n "$ns" apply -f "$section/02-hpa/hpa.yml"
+            kubectl -n "$ns" rollout status deployment/cpu-demo --timeout=240s
+            for attempt in $(seq 1 36); do
+              kubectl -n "$ns" top pods 2>/dev/null && break
+              sleep 5
+            done
+            kubectl -n "$ns" get hpa
+            kubectl -n "$ns" describe hpa cpu-demo
+            kubectl -n "$ns" apply -f "$section/02-hpa/load-generator.yaml"
+            wait_ready load-generator
+            scaled=0
+            for attempt in $(seq 1 72); do
+              kubectl -n "$ns" get hpa
+              replicas=$(kubectl -n "$ns" get deployment cpu-demo -o jsonpath='{.spec.replicas}')
+              if (( replicas >= 2 )); then scaled=1; break; fi
+              sleep 5
+            done
+            test "$scaled" = 1
+            kubectl -n "$ns" rollout status deployment/cpu-demo --timeout=180s
+            kubectl -n "$ns" get pods -o wide
+            kubectl -n "$ns" top pods
+            kubectl -n "$ns" describe hpa cpu-demo
+            kubectl -n "$ns" delete pod load-generator
+            for attempt in $(seq 1 60); do
+              replicas=$(kubectl -n "$ns" get deployment cpu-demo -o jsonpath='{.spec.replicas}')
+              if (( replicas == 1 )); then break; fi
+              sleep 5
+            done
+            test "$replicas" = 1
+            kubectl -n "$ns" get hpa,pods
+            echo 'Verified scale-out under load and scale-in after load removal.'
+          }
+
+          mini_project() {
+            kubectl -n "$ns" apply -f "$section/03-mini-project/app.yaml"
+            kubectl -n "$ns" rollout status deployment/notes-app --timeout=240s
+            kubectl -n "$ns" get pvc,pods,service,hpa
+            kubectl -n "$ns" exec deployment/notes-app -- sh -c 'echo notes-marker > /usr/share/nginx/html/marker.txt'
+            oldpod=$(kubectl -n "$ns" get pod -l app=notes-app -o jsonpath='{.items[0].metadata.name}')
+            kubectl -n "$ns" delete pod "$oldpod"
+            kubectl -n "$ns" rollout status deployment/notes-app --timeout=240s
+            kubectl -n "$ns" exec deployment/notes-app -- grep notes-marker /usr/share/nginx/html/marker.txt
+            kubectl -n "$ns" get deployment notes-app -o jsonpath='{.spec.template.spec.containers[0].startupProbe}{"\n"}{.spec.template.spec.containers[0].readinessProbe}{"\n"}{.spec.template.spec.containers[0].livenessProbe}{"\n"}'
+            kubectl -n "$ns" exec deployment/notes-app -- mv /usr/share/nginx/html/index.html /usr/share/nginx/html/index.saved
+            for attempt in $(seq 1 12); do
+              ready=$(kubectl -n "$ns" get pod -l app=notes-app -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}')
+              [[ "$ready" == False ]] && break
+              sleep 2
+            done
+            kubectl -n "$ns" get pods -l app=notes-app
+            ready=$(kubectl -n "$ns" get pod -l app=notes-app -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}')
+            test "$ready" = False
+            kubectl -n "$ns" get endpointslice -l kubernetes.io/service-name=notes-app -o yaml
+            kubectl -n "$ns" exec deployment/notes-app -- mv /usr/share/nginx/html/index.saved /usr/share/nginx/html/index.html
+            kubectl -n "$ns" wait --for=condition=Ready pod -l app=notes-app --timeout=120s
+            kubectl -n "$ns" get pods -l app=notes-app
+            echo 'Readiness failure and recovery verified.'
+          }
+
+          record "$section/evidence/01-volumes.txt" volumes
+          record "$section/evidence/02-hpa.txt" autoscaling
+          record "$section/evidence/03-mini-project.txt" mini_project
+          kubectl delete namespace "$ns" --wait=true
+          kubectl delete pv coursework-s13-pv --ignore-not-found
+
+          ;;
+          session14)
+          ns=coursework-s14
+          section=session14-troubleshooting
+          kubectl create namespace "$ns" --dry-run=client -o yaml | kubectl apply -f -
+
+          wait_reason() {
+            local name="$1" reason="$2"
+            for attempt in $(seq 1 60); do
+              actual=$(kubectl -n "$ns" get pod "$name" -o jsonpath='{.status.containerStatuses[0].state.waiting.reason}')
+              if [[ "$actual" == "$reason" ]]; then return; fi
+              sleep 3
+            done
+            kubectl -n "$ns" describe pod "$name"
+            return 1
+          }
+
+          commands() {
+            kubectl -n "$ns" create deployment web --image=nginx:stable-alpine
+            kubectl -n "$ns" rollout status deployment/web --timeout=240s
+            kubectl -n "$ns" expose deployment web --port=80
+            kubectl -n "$ns" run client --image=busybox:1.36 --labels=app=client --command -- sleep 3600
+            wait_ready client
+            kubectl -n "$ns" get all
+            kubectl -n "$ns" get pods -o wide
+            kubectl -n "$ns" get pods -o custom-columns=NAME:.metadata.name,NODE:.spec.nodeName,IP:.status.podIP
+            kubectl -n "$ns" describe deployment web
+            kubectl -n "$ns" logs deployment/web
+            kubectl -n "$ns" exec client -- wget -qO- http://web
+            kubectl -n "$ns" exec client -- cat /etc/resolv.conf
+            kubectl -n "$ns" events
+            kubectl explain pod.spec.containers.resources
+            for attempt in $(seq 1 24); do
+              kubectl -n "$ns" top pods 2>/dev/null && break
+              sleep 5
+            done
+            kubectl -n "$ns" top pods
+          }
+
+          crash() {
+            kubectl -n "$ns" apply -f "$section/labs/broken-crash.yaml"
+            wait_reason crash-demo CrashLoopBackOff
+            kubectl -n "$ns" get pod crash-demo
+            kubectl -n "$ns" logs crash-demo --previous
+            kubectl -n "$ns" describe pod crash-demo
+            kubectl -n "$ns" delete pod crash-demo
+            kubectl -n "$ns" apply -f "$section/labs/fixed-crash.yaml"
+            wait_ready crash-demo
+            kubectl -n "$ns" logs crash-demo
+          }
+
+          image_pull() {
+            kubectl -n "$ns" apply -f "$section/labs/broken-image.yaml"
+            wait_reason image-demo ImagePullBackOff
+            kubectl -n "$ns" describe pod image-demo
+            kubectl -n "$ns" events --for pod/image-demo
+            kubectl -n "$ns" delete pod image-demo
+            kubectl -n "$ns" apply -f "$section/labs/fixed-image.yaml"
+            wait_ready image-demo
+            kubectl -n "$ns" get pod image-demo -o wide
+          }
+
+          scheduling_and_mounts() {
+            kubectl -n "$ns" apply -f "$section/labs/broken-pending.yaml"
+            sleep 5
+            kubectl -n "$ns" get pod pending-demo
+            kubectl -n "$ns" describe pod pending-demo
+            phase=$(kubectl -n "$ns" get pod pending-demo -o jsonpath='{.status.phase}')
+            test "$phase" = Pending
+            kubectl -n "$ns" delete pod pending-demo
+            kubectl -n "$ns" apply -f "$section/labs/fixed-pending.yaml"
+            wait_ready pending-demo
+            kubectl -n "$ns" apply -f "$section/labs/broken-mount.yaml"
+            sleep 8
+            kubectl -n "$ns" get pod mount-demo
+            kubectl -n "$ns" describe pod mount-demo
+            kubectl -n "$ns" create configmap missing-config --from-literal=mode=incorrect
+            wait_ready mount-demo
+            kubectl -n "$ns" exec mount-demo -- cat /config/mode
+            kubectl -n "$ns" patch configmap missing-config --type=merge -p '{"data":{"mode":"corrected"}}'
+            for attempt in $(seq 1 30); do
+              value=$(kubectl -n "$ns" exec mount-demo -- cat /config/mode)
+              if [[ "$value" == corrected ]]; then break; fi
+              sleep 5
+            done
+            test "$value" = corrected
+            kubectl -n "$ns" exec mount-demo -- cat /config/mode
+          }
+
+          networking() {
+            expect_error 'bad address' kubectl -n "$ns" exec client -- wget -T 3 -qO- http://wrong-service
+            kubectl -n "$ns" exec client -- nslookup web.coursework-s14.svc.cluster.local
+            kubectl -n "$ns" apply -f "$section/labs/network-policy.yaml"
+            sleep 5
+            expect_error 'timed out' kubectl -n "$ns" exec client -- wget -T 3 -qO- http://web
+            kubectl -n "$ns" get networkpolicy -o yaml
+            kubectl -n "$ns" apply -f "$section/labs/network-policy-allow.yaml"
+            sleep 5
+            kubectl -n "$ns" exec client -- wget -T 5 -qO- http://web
+          }
+
+          mini_project() {
+            kubectl -n "$ns" apply -f "$section/mini-project/broken-image.yaml"
+            wait_reason project-broken-pod ImagePullBackOff
+            kubectl -n "$ns" describe pod project-broken-pod
+            kubectl -n "$ns" set image pod/project-broken-pod app=nginx:stable-alpine
+            wait_ready project-broken-pod
+            kubectl -n "$ns" get pod project-broken-pod -o wide
+            kubectl -n "$ns" apply -f "$section/mini-project/broken.yaml"
+            sleep 15
+            kubectl -n "$ns" get pods -l app=broken-web
+            kubectl -n "$ns" describe deployment broken-web
+            kubectl -n "$ns" describe pod -l app=broken-web
+            kubectl -n "$ns" get service broken-web -o yaml
+            kubectl -n "$ns" get endpointslice -l kubernetes.io/service-name=broken-web -o yaml
+            echo 'Root causes: /wrong-health-path returns 404; Service selector does not match app label.'
+            kubectl -n "$ns" apply -f "$section/mini-project/fixed.yaml"
+            kubectl -n "$ns" rollout status deployment/broken-web --timeout=240s
+            kubectl -n "$ns" get pods -l app=broken-web
+            kubectl -n "$ns" get endpointslice -l kubernetes.io/service-name=broken-web -o yaml
+            kubectl -n "$ns" exec client -- wget -T 5 -qO- http://broken-web
+          }
+
+          record "$section/evidence/01-commands.txt" commands
+          record "$section/evidence/02-crashloop.txt" crash
+          record "$section/evidence/03-image-pull.txt" image_pull
+          record "$section/evidence/04-scheduling-configuration.txt" scheduling_and_mounts
+          record "$section/evidence/05-networking-dns.txt" networking
+          record "$section/evidence/06-mini-project.txt" mini_project
+          kubectl delete namespace "$ns" --wait=true
+
+          ;;
+          session15)
+          ns=coursework-s15
+          section=session15-helm
+          chart="$section/notes-chart"
+          kubectl create namespace "$ns" --dry-run=client -o yaml | kubectl apply -f -
+
+          verify_release() {
+            local release="$1" expected="$2" replicas="$3"
+            kubectl -n "$ns" rollout status "deployment/$release" --timeout=240s
+            count=$(kubectl -n "$ns" get deployment "$release" -o jsonpath='{.status.readyReplicas}')
+            test "$count" = "$replicas"
+            kubectl -n "$ns" run "verify-$release" --rm -i --restart=Never --image=busybox:1.36 --command -- sh -c "wget -qO- http://$release | grep '$expected'"
+            kubectl -n "$ns" get pods -l "app=$release"
+          }
+
+          commands() {
+            scaffold=$(mktemp -d)
+            helm create "$scaffold/example-chart"
+            helm lint "$scaffold/example-chart"
+            helm lint "$chart"
+            helm template notes "$chart"
+            helm repo add bitnami https://charts.bitnami.com/bitnami
+            helm repo update
+            helm search repo bitnami/nginx
+            helm install notes "$chart" -n "$ns" --wait --timeout=240s
+            helm list -n "$ns"
+            helm status notes -n "$ns"
+            helm get values notes -n "$ns" --all
+            helm get manifest notes -n "$ns"
+            helm history notes -n "$ns"
+            verify_release notes 'Notes version one' 1
+          }
+
+          rollback() {
+            helm upgrade notes "$chart" -n "$ns" --set replicaCount=3 --set 'message=Notes version two' --wait --timeout=240s
+            verify_release notes 'Notes version two' 3
+            helm upgrade notes "$chart" -n "$ns" --set replicaCount=1 --set 'message=Notes version three' --wait --timeout=240s
+            verify_release notes 'Notes version three' 1
+            helm rollback notes 2 -n "$ns" --wait --timeout=240s
+            verify_release notes 'Notes version two' 3
+            helm get values notes -n "$ns"
+            helm history notes -n "$ns"
+            helm uninstall notes -n "$ns" --wait
+            helm list -n "$ns"
+          }
+
+          mini_project() {
+            helm install notes-project "$chart" -n "$ns" --wait --timeout=240s
+            verify_release notes-project 'Notes version one' 1
+            helm upgrade notes-project "$chart" -n "$ns" -f "$chart/values-prod.yaml" --set 'message=Project version two' --wait --timeout=240s
+            verify_release notes-project 'Project version two' 3
+            kubectl -n "$ns" exec deployment/notes-project -- printenv APP_NAME ENVIRONMENT
+            helm rollback notes-project 1 -n "$ns" --wait --timeout=240s
+            verify_release notes-project 'Notes version one' 1
+            helm history notes-project -n "$ns"
+            helm uninstall notes-project -n "$ns" --wait
+          }
+
+          record "$section/evidence/01-helm-commands.txt" commands
+          record "$section/evidence/02-rollback.txt" rollback
+          record "$section/evidence/03-mini-project.txt" mini_project
+          kubectl delete namespace "$ns" --wait=true
+
+          ;;
+          basics)
+
+          linux_logs() {
+            journalctl --no-pager -n 15
+            journalctl -u docker --no-pager -n 15
+            systemctl is-active docker
+          }
+
+          git_practice() {
+            git log --oneline --graph --all -18
+            git show --stat ff062cc
+            git show 4b7e9a3:git-and-github/cherry-picked-change.txt
+            git show ff062cc:git-and-github/cherry-picked-change.txt
+            echo 'Original and cherry-picked commits contain the same selected change.'
+            directory=$(mktemp -d)
+            git -C "$directory" init --initial-branch=main
+            git -C "$directory" config user.name 'Coursework practice'
+            git -C "$directory" config user.email 'coursework@example.invalid'
+            printf 'initial\n' > "$directory/tracked.txt"
+            git -C "$directory" add tracked.txt
+            git -C "$directory" commit -m 'Initialize practice'
+            printf 'changed\n' >> "$directory/tracked.txt"
+            printf 'new\n' > "$directory/new.txt"
+            git -C "$directory" status --short
+            git -C "$directory" commit -a -m 'Automatically stage tracked changes'
+            git -C "$directory" status --short
+            test "$(git -C "$directory" status --short)" = '?? new.txt'
+            git -C "$directory" add new.txt
+            git -C "$directory" commit -m 'Explicitly stage the new file'
+            git -C "$directory" status --short
+            rm -rf "$directory"
+          }
+
+          kubernetes_basics() {
+            ns=coursework-s9
+            minikube status
+            kubectl get nodes -o wide
+            kubectl create namespace "$ns" --dry-run=client -o yaml | kubectl apply -f -
+            kubectl -n "$ns" create deployment tutorial-web --image=nginx:1.27-alpine
+            kubectl -n "$ns" rollout status deployment/tutorial-web --timeout=240s
+            kubectl -n "$ns" get deployment,replicaset,pods -o wide
+            kubectl -n "$ns" describe deployment tutorial-web
+            kubectl -n "$ns" logs deployment/tutorial-web --tail=10
+            kubectl -n "$ns" expose deployment tutorial-web --port=80
+            kubectl -n "$ns" run tutorial-client --image=busybox:1.36 --command -- sleep 3600
+            wait_ready tutorial-client
+            kubectl -n "$ns" exec tutorial-client -- wget -qO- http://tutorial-web
+            kubectl -n "$ns" scale deployment/tutorial-web --replicas=3
+            kubectl -n "$ns" rollout status deployment/tutorial-web --timeout=240s
+            kubectl -n "$ns" get pods -o wide
+            kubectl -n "$ns" set image deployment/tutorial-web nginx=nginx:stable-alpine
+            kubectl -n "$ns" rollout status deployment/tutorial-web --timeout=240s
+            kubectl -n "$ns" rollout history deployment/tutorial-web
+            kubectl -n "$ns" rollout undo deployment/tutorial-web
+            kubectl -n "$ns" rollout status deployment/tutorial-web --timeout=240s
+            kubectl -n "$ns" exec tutorial-client -- wget -qO- http://tutorial-web
+            kubectl delete namespace "$ns" --wait=true
+          }
+
+          ingress_troubleshooting() {
+            ns=coursework-s12-repair
+            kubectl create namespace "$ns" --dry-run=client -o yaml | kubectl apply -f -
+            kubectl -n "$ns" apply -f session-12-ingress-configmaps-secrets/troubleshooting/broken.yaml
+            sleep 10
+            kubectl -n "$ns" get pods
+            kubectl -n "$ns" describe pod repair-web
+            kubectl -n "$ns" get service repair-web -o yaml
+            kubectl -n "$ns" get endpointslice -l kubernetes.io/service-name=repair-web -o yaml
+            echo 'Root causes: missing ConfigMap prevents container startup; incorrect Service selector prevents endpoint selection.'
+            kubectl -n "$ns" apply -f session-12-ingress-configmaps-secrets/troubleshooting/fixed.yaml
+            wait_ready repair-web
+            kubectl -n "$ns" exec repair-web -- printenv APP_MODE
+            kubectl -n "$ns" get endpointslice -l kubernetes.io/service-name=repair-web -o yaml
+            kubectl -n "$ns" run repair-client --rm -i --restart=Never --image=busybox:1.36 --command -- wget -qO- http://repair-web
+            kubectl delete namespace "$ns" --wait=true
+          }
+
+          record linux-fundamentals/evidence/service-journal.txt linux_logs
+          record git-and-github/evidence/commit-and-cherry-pick.txt git_practice
+          record session9-k8s/evidence/basics-tutorial.txt kubernetes_basics
+          record session-12-ingress-configmaps-secrets/evidence/troubleshooting.txt ingress_troubleshooting
+
+          ;;
+          esac
+      - name: Render evidence into session READMEs
+        run: |
+          python - ${{ matrix.sections }} <<'PY'
+          #!/usr/bin/env python3
+          """Render genuine saved lab output and embed each image in its session README."""
+          import argparse
+          import re
+          import textwrap
+          from pathlib import Path
+
+          from PIL import Image, ImageDraw, ImageFont
+
+
+          def main():
+              parser = argparse.ArgumentParser()
+              parser.add_argument("sessions", nargs="+")
+              args = parser.parse_args()
+              for name in args.sessions:
+                  root = Path(name)
+                  outputs = sorted((root / "evidence").glob("*.txt"))
+                  if not outputs:
+                      raise SystemExit(f"No recorded output for {name}")
+                  blocks = ["## Recorded execution evidence", "",
+                            "These PNGs render the saved output of real commands. Each image links to its complete transcript.", ""]
+                  for source in outputs:
+                      text = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", source.read_text(errors="replace"))
+                      lines = [part for line in text.splitlines() for part in
+                               (textwrap.wrap(line.expandtabs(4), 118, replace_whitespace=False) or [""])]
+                      font_path = next((p for p in ["/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+                                                   "/System/Library/Fonts/Menlo.ttc"] if Path(p).exists()), None)
+                      font = ImageFont.truetype(font_path, 16) if font_path else ImageFont.load_default()
+                      for page, start in enumerate(range(0, max(1, len(lines)), 55), 1):
+                          shown = lines[start:start + 55]
+                          image = Image.new("RGB", (1280, 112 + 23 * len(shown)), "#0d1117")
+                          draw = ImageDraw.Draw(image)
+                          draw.rectangle((0, 0, 1280, 46), fill="#21262d")
+                          draw.text((22, 14), f"{root.name} / {source.name} / {page}", font=font, fill="#f0f6fc")
+                          for i, line in enumerate(shown):
+                              draw.text((22, 62 + i * 23), line, font=font,
+                                        fill="#7ee787" if line.startswith("$ ") else "#c9d1d9")
+                          draw.text((22, image.height - 30), "Recorded command output; full transcript linked below", font=font, fill="#8b949e")
+                          destination = root / "screenshots" / f"{source.stem}-{page:02}.png"
+                          destination.parent.mkdir(parents=True, exist_ok=True)
+                          image.save(destination)
+                          blocks += [f"![{source.stem}, page {page}]({destination.relative_to(root)})", ""]
+                      blocks += [f"[Complete commands and output: {source.name}]({source.relative_to(root)})", ""]
+                  readme = root / "README.md"
+                  current = readme.read_text().split("## Recorded execution evidence")[0].rstrip()
+                  readme.write_text(current + "\n\n" + "\n".join(blocks))
+
+
+          if __name__ == "__main__":
+              main()
+
+          PY
+      - name: Collect reviewable evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-${{ matrix.lab }}
+          path: |
+            **/evidence/*.txt
+            **/screenshots/*.png
+            **/README.md
+          retention-days: 14
+
+  cicd:
+    name: Session 16 build, test, registry and deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install lab tools and start Kubernetes
+        run: |
+          python -m pip install Pillow PyYAML
+          curl -fsSL https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 -o /tmp/minikube
+          sudo install /tmp/minikube /usr/local/bin/minikube
+          helm_release=v3.17.3
+          curl -fsSL "https://get.helm.sh/helm-${helm_release}-linux-amd64.tar.gz" -o /tmp/helm.tar.gz
+          tar -xzf /tmp/helm.tar.gz -C /tmp
+          sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
+          minikube start --driver=docker --cpus=2 --memory=4096 --cni=calico
+          minikube addons enable metrics-server
+          kubectl -n kube-system rollout status deployment/metrics-server --timeout=240s
+          kubectl get nodes -o wide
+      - name: CI and CD
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COURSEWORK_PUBLISH_IMAGES: '1'
+        run: |
+          set -euo pipefail
+
+          repo_root="$GITHUB_WORKSPACE"
+          cd "$repo_root"
+
+          record() {
+            local destination="$1"
+            shift
+            mkdir -p "$(dirname "$destination")"
+            (
+              set -euo pipefail
+              PS4='$ '
+              set -x
+              "$@"
+            ) > "$destination" 2>&1
+            cat "$destination"
+          }
+
+          wait_ready() {
+            kubectl -n "$ns" wait --for=condition=Ready "pod/$1" --timeout=240s
+          }
+
+          expect_error() {
+            local expected="$1"
+            shift
+            local result
+            if result=$("$@" 2>&1); then
+              printf '%s\n' "$result"
+              echo "Expected a failure but the command succeeded." >&2
+              return 1
+            fi
+            printf '%s\n' "$result"
+            [[ "$result" == *"$expected"* ]]
+          }
+
+          publish_image() {
+          set -euo pipefail
+          source_image="$1"
+          package="$2"
+          output="$3"
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          destination="ghcr.io/$owner/$package:${GITHUB_SHA}"
+          mkdir -p "$(dirname "$output")"
+          printf '%s' "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker tag "$source_image" "$destination"
+          {
+            printf '$ docker push %s\n' "$destination"
+            docker push "$destination"
+            printf '$ docker image inspect %s --format {{.Id}}\n' "$destination"
+            docker image inspect "$destination" --format '{{.Id}}'
+          } > "$output" 2>&1
+          cat "$output"
+
+          }
+
+          ns=coursework-s16
+          section=session16-cicd
+
+          build_test() {
+            cd "$repo_root/$section"
+            python -m pip install -r requirements-dev.txt
+            python -m pytest -v --cov=app --cov-report=term-missing --junitxml=build-tests.xml
+            bash build.sh
+            cat build/build-info.txt
+            echo 'GitHub workflow artifact: calculator build directory and execution evidence.'
+            echo 'Registry authentication is performed outside the recorded shell trace.'
+            docker build -t coursework-calculator:lab .
+          }
+
+          deploy() {
+            minikube image load coursework-calculator:lab
+            kubectl create namespace "$ns" --dry-run=client -o yaml | kubectl apply -f -
+            kubectl -n "$ns" create deployment calculator --image=coursework-calculator:lab
+            kubectl -n "$ns" rollout status deployment/calculator --timeout=240s
+            kubectl -n "$ns" expose deployment calculator --port=80 --target-port=5001
+            kubectl -n "$ns" port-forward service/calculator 15016:80 > /tmp/coursework-s16-forward.log 2>&1 &
+            forward_pid=$!
+            trap 'kill "$forward_pid" 2>/dev/null || true' EXIT
+            for attempt in $(seq 1 20); do
+              curl -fsS http://localhost:15016/health && break
+              sleep 2
+            done
+            curl -fsS http://localhost:15016/health
+            curl -fsS -H 'Content-Type: application/json' -d '{"a":6,"b":3,"operation":"multiply"}' http://localhost:15016/calculate
+            kubectl -n "$ns" get pods,service -o wide
+            kill "$forward_pid"
+            trap - EXIT
+          }
+
+          record "$section/evidence/01-build-tests.txt" build_test
+          if [[ "${COURSEWORK_PUBLISH_IMAGES:-0}" = 1 ]]; then
+            publish_image coursework-calculator:lab session16-calculator "$section/evidence/02-registry.txt"
+          fi
+          record "$section/evidence/03-kubernetes-deployment.txt" deploy
+          kubectl delete namespace "$ns" --wait=true
+      - name: Render evidence
+        run: |
+          python - session16-cicd <<'PY'
+          #!/usr/bin/env python3
+          """Render genuine saved lab output and embed each image in its session README."""
+          import argparse
+          import re
+          import textwrap
+          from pathlib import Path
+
+          from PIL import Image, ImageDraw, ImageFont
+
+
+          def main():
+              parser = argparse.ArgumentParser()
+              parser.add_argument("sessions", nargs="+")
+              args = parser.parse_args()
+              for name in args.sessions:
+                  root = Path(name)
+                  outputs = sorted((root / "evidence").glob("*.txt"))
+                  if not outputs:
+                      raise SystemExit(f"No recorded output for {name}")
+                  blocks = ["## Recorded execution evidence", "",
+                            "These PNGs render the saved output of real commands. Each image links to its complete transcript.", ""]
+                  for source in outputs:
+                      text = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", source.read_text(errors="replace"))
+                      lines = [part for line in text.splitlines() for part in
+                               (textwrap.wrap(line.expandtabs(4), 118, replace_whitespace=False) or [""])]
+                      font_path = next((p for p in ["/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+                                                   "/System/Library/Fonts/Menlo.ttc"] if Path(p).exists()), None)
+                      font = ImageFont.truetype(font_path, 16) if font_path else ImageFont.load_default()
+                      for page, start in enumerate(range(0, max(1, len(lines)), 55), 1):
+                          shown = lines[start:start + 55]
+                          image = Image.new("RGB", (1280, 112 + 23 * len(shown)), "#0d1117")
+                          draw = ImageDraw.Draw(image)
+                          draw.rectangle((0, 0, 1280, 46), fill="#21262d")
+                          draw.text((22, 14), f"{root.name} / {source.name} / {page}", font=font, fill="#f0f6fc")
+                          for i, line in enumerate(shown):
+                              draw.text((22, 62 + i * 23), line, font=font,
+                                        fill="#7ee787" if line.startswith("$ ") else "#c9d1d9")
+                          draw.text((22, image.height - 30), "Recorded command output; full transcript linked below", font=font, fill="#8b949e")
+                          destination = root / "screenshots" / f"{source.stem}-{page:02}.png"
+                          destination.parent.mkdir(parents=True, exist_ok=True)
+                          image.save(destination)
+                          blocks += [f"![{source.stem}, page {page}]({destination.relative_to(root)})", ""]
+                      blocks += [f"[Complete commands and output: {source.name}]({source.relative_to(root)})", ""]
+                  readme = root / "README.md"
+                  current = readme.read_text().split("## Recorded execution evidence")[0].rstrip()
+                  readme.write_text(current + "\n\n" + "\n".join(blocks))
+
+
+          if __name__ == "__main__":
+              main()
+
+          PY
+      - name: Upload build and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-cicd
+          path: |
+            README.md
+            session16-cicd/README.md
+            session16-cicd/evidence/
+            session16-cicd/screenshots/
+            session16-cicd/build/
+            session16-cicd/build-tests.xml
+          retention-days: 14
+
+  devsecops:
+    name: Session 17 security gates and Session 20 observability/GitOps
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install lab tools and start Kubernetes
+        run: |
+          python -m pip install Pillow PyYAML
+          curl -fsSL https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 -o /tmp/minikube
+          sudo install /tmp/minikube /usr/local/bin/minikube
+          helm_release=v3.17.3
+          curl -fsSL "https://get.helm.sh/helm-${helm_release}-linux-amd64.tar.gz" -o /tmp/helm.tar.gz
+          tar -xzf /tmp/helm.tar.gz -C /tmp
+          sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
+          minikube start --driver=docker --cpus=2 --memory=4096 --cni=calico
+          minikube addons enable metrics-server
+          kubectl -n kube-system rollout status deployment/metrics-server --timeout=240s
+          kubectl get nodes -o wide
+      - name: Install security scanners
+        run: |
+          release=$(curl -fsSL https://api.github.com/repos/gitleaks/gitleaks/releases/latest)
+          asset=$(printf '%s' "$release" | jq -r '.assets[] | select(.name | endswith("linux_x64.tar.gz")) | .browser_download_url')
+          curl -fsSL "$asset" -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          sudo install /tmp/gitleaks /usr/local/bin/gitleaks
+          release=$(curl -fsSL https://api.github.com/repos/aquasecurity/trivy/releases/latest)
+          asset=$(printf '%s' "$release" | jq -r '.assets[] | select(.name | endswith("Linux-64bit.tar.gz")) | .browser_download_url')
+          curl -fsSL "$asset" -o /tmp/trivy.tar.gz
+          tar -xzf /tmp/trivy.tar.gz -C /tmp trivy
+          sudo install /tmp/trivy /usr/local/bin/trivy
+          gitleaks version
+          trivy --version
+      - name: Gated DevSecOps pipeline
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COURSEWORK_PUBLISH_IMAGES: '1'
+        run: |
+          set -euo pipefail
+
+          repo_root="$GITHUB_WORKSPACE"
+          cd "$repo_root"
+
+          record() {
+            local destination="$1"
+            shift
+            mkdir -p "$(dirname "$destination")"
+            (
+              set -euo pipefail
+              PS4='$ '
+              set -x
+              "$@"
+            ) > "$destination" 2>&1
+            cat "$destination"
+          }
+
+          wait_ready() {
+            kubectl -n "$ns" wait --for=condition=Ready "pod/$1" --timeout=240s
+          }
+
+          expect_error() {
+            local expected="$1"
+            shift
+            local result
+            if result=$("$@" 2>&1); then
+              printf '%s\n' "$result"
+              echo "Expected a failure but the command succeeded." >&2
+              return 1
+            fi
+            printf '%s\n' "$result"
+            [[ "$result" == *"$expected"* ]]
+          }
+
+          publish_image() {
+          set -euo pipefail
+          source_image="$1"
+          package="$2"
+          output="$3"
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          destination="ghcr.io/$owner/$package:${GITHUB_SHA}"
+          mkdir -p "$(dirname "$output")"
+          printf '%s' "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker tag "$source_image" "$destination"
+          {
+            printf '$ docker push %s\n' "$destination"
+            docker push "$destination"
+            printf '$ docker image inspect %s --format {{.Id}}\n' "$destination"
+            docker image inspect "$destination" --format '{{.Id}}'
+          } > "$output" 2>&1
+          cat "$output"
+
+          }
+
+          ns=coursework-s17
+          section=Hello-CICD
+
+          unit_tests() {
+            cd "$repo_root/$section"
+            python -m pip install -r requirements-dev.txt
+            python -m compileall -q app
+            python -m pytest -v --cov=app --cov-report=term-missing --junitxml=test-results.xml
+          }
+
+          sast() {
+            python -m bandit -r "$section/app" -lll -iii
+            fixture=$(mktemp -d)
+            printf 'import subprocess\nsubprocess.run(input("command: "), shell=True)\n' > "$fixture/unsafe.py"
+            expect_error 'Issue:' python -m bandit "$fixture/unsafe.py" -lll -iii
+            rm -rf "$fixture"
+            echo 'SAST gate rejected the intentionally unsafe fixture.'
+          }
+
+          dependencies_and_secrets() {
+            python -m pip_audit -r "$section/requirements.txt"
+            gitleaks dir "$section" --no-banner --redact
+            fixture=$(mktemp -d)
+            printf 'api_key = "aB9xP2qT7mR4vL8nC5sW1jK6hF3zD0uE"\n' > "$fixture/secret.txt"
+            expect_error 'leaks found' gitleaks dir "$fixture" --no-banner --redact
+            rm -rf "$fixture"
+            echo 'Secret gate rejected the synthetic credential fixture.'
+          }
+
+          image_scan() {
+            docker build -t coursework-devsecops:lab "$section"
+            trivy image --scanners vuln --severity HIGH,CRITICAL --exit-code 0 coursework-devsecops:lab
+            trivy image --scanners vuln --severity CRITICAL --exit-code 1 coursework-devsecops:lab
+            echo 'CRITICAL vulnerability security gate passed.'
+          }
+
+          deployment() {
+            minikube image load coursework-devsecops:lab
+            kubectl create namespace "$ns" --dry-run=client -o yaml | kubectl apply -f -
+            kubectl -n "$ns" apply -f "$section/k8s/"
+            kubectl -n "$ns" rollout status deployment/session17-python --timeout=240s
+            kubectl -n "$ns" port-forward service/session17-python 15017:80 > /tmp/coursework-s17-forward.log 2>&1 &
+            forward_pid=$!
+            trap 'kill "$forward_pid" 2>/dev/null || true' EXIT
+            for attempt in $(seq 1 20); do
+              curl -fsS http://localhost:15017/health && break
+              sleep 2
+            done
+            curl -fsS http://localhost:15017/health
+            curl -fsS -H 'Content-Type: application/json' -d '{"a":6,"b":3,"operation":"multiply"}' http://localhost:15017/api/calculate
+            kubectl -n "$ns" get pods,service -o wide
+            kubectl -n "$ns" logs deployment/session17-python --tail=12
+            kill "$forward_pid"
+            trap - EXIT
+          }
+
+          record "$section/evidence/01-unit-tests.txt" unit_tests
+          record "$section/evidence/02-sast-gate.txt" sast
+          record "$section/evidence/03-dependencies-secrets.txt" dependencies_and_secrets
+          record "$section/evidence/04-image-security-gate.txt" image_scan
+          if [[ "${COURSEWORK_PUBLISH_IMAGES:-0}" = 1 ]]; then
+            publish_image coursework-devsecops:lab session17-devsecops "$section/evidence/05-registry.txt"
+          fi
+          record "$section/evidence/06-kubernetes-deployment.txt" deployment
+          kubectl delete namespace "$ns" --wait=true
+      - name: Monitoring, alerts and GitOps reconciliation
+        run: |
+          set -euo pipefail
+
+          repo_root="$GITHUB_WORKSPACE"
+          cd "$repo_root"
+
+          record() {
+            local destination="$1"
+            shift
+            mkdir -p "$(dirname "$destination")"
+            (
+              set -euo pipefail
+              PS4='$ '
+              set -x
+              "$@"
+            ) > "$destination" 2>&1
+            cat "$destination"
+          }
+
+          wait_ready() {
+            kubectl -n "$ns" wait --for=condition=Ready "pod/$1" --timeout=240s
+          }
+
+          expect_error() {
+            local expected="$1"
+            shift
+            local result
+            if result=$("$@" 2>&1); then
+              printf '%s\n' "$result"
+              echo "Expected a failure but the command succeeded." >&2
+              return 1
+            fi
+            printf '%s\n' "$result"
+            [[ "$result" == *"$expected"* ]]
+          }
+
+          publish_image() {
+          set -euo pipefail
+          source_image="$1"
+          package="$2"
+          output="$3"
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          destination="ghcr.io/$owner/$package:${GITHUB_SHA}"
+          mkdir -p "$(dirname "$output")"
+          printf '%s' "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker tag "$source_image" "$destination"
+          {
+            printf '$ docker push %s\n' "$destination"
+            docker push "$destination"
+            printf '$ docker image inspect %s --format {{.Id}}\n' "$destination"
+            docker image inspect "$destination" --format '{{.Id}}'
+          } > "$output" 2>&1
+          cat "$output"
+
+          }
+
+          ns=coursework-s20
+          section=session20-monitoring
+          kubectl create namespace "$ns" --dry-run=client -o yaml | kubectl apply -f -
+
+          query() {
+            curl -fsSG --data-urlencode "query=$1" http://localhost:19090/api/v1/query
+            echo
+          }
+
+          monitoring() {
+            kubectl -n "$ns" apply -f Hello-CICD/k8s/
+            kubectl -n "$ns" apply -f "$section/monitoring/"
+            for name in session17-python prometheus node-exporter grafana; do
+              kubectl -n "$ns" rollout status "deployment/$name" --timeout=300s
+            done
+            kubectl -n "$ns" port-forward service/prometheus 19090:9090 > /tmp/coursework-prometheus-forward.log 2>&1 &
+            prom_pid=$!
+            kubectl -n "$ns" port-forward service/grafana 13000:3000 > /tmp/coursework-grafana-forward.log 2>&1 &
+            grafana_pid=$!
+            trap 'kill "$prom_pid" "$grafana_pid" 2>/dev/null || true' EXIT
+            sleep 10
+            kubectl -n "$ns" run metrics-client --rm -i --restart=Never --image=busybox:1.36 --command -- wget -qO- http://session17-python/health
+            for attempt in $(seq 1 30); do
+              result=$(curl -fsSG --data-urlencode 'query=up{job="application"}' http://localhost:19090/api/v1/query)
+              if printf '%s' "$result" | python -c 'import json,sys; r=json.load(sys.stdin)["data"]["result"]; assert r and r[0]["value"][1]=="1"'; then break; fi
+              sleep 3
+            done
+            query 'up{job="application"}'
+            query 'coursework_http_requests_total'
+            query '100 * (1 - avg(rate(node_cpu_seconds_total{mode="idle"}[1m])))'
+            query '100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)'
+            kubectl -n "$ns" logs deployment/session17-python --tail=20
+            kubectl -n "$ns" top pods
+            curl -fsS http://localhost:13000/api/health
+            curl -fsS http://localhost:13000/api/dashboards/uid/coursework
+            if command -v chromium >/dev/null 2>&1; then
+              chromium --headless --no-sandbox --disable-dev-shm-usage --window-size=1440,1000 --virtual-time-budget=12000 --screenshot="$repo_root/$section/screenshots/grafana-dashboard.png" 'http://localhost:13000/d/coursework/devops-coursework?orgId=1&kiosk'
+            fi
+            kubectl -n "$ns" scale deployment/session17-python --replicas=0
+            firing=0
+            for attempt in $(seq 1 30); do
+              result=$(curl -fsSG --data-urlencode 'query=ALERTS{alertname="ApplicationUnavailable",alertstate="firing"}' http://localhost:19090/api/v1/query)
+              if printf '%s' "$result" | python -c 'import json,sys; assert json.load(sys.stdin)["data"]["result"]'; then firing=1; break; fi
+              sleep 3
+            done
+            test "$firing" = 1
+            query 'ALERTS{alertname="ApplicationUnavailable"}'
+            kubectl -n "$ns" scale deployment/session17-python --replicas=2
+            kubectl -n "$ns" rollout status deployment/session17-python --timeout=240s
+            recovered=0
+            for attempt in $(seq 1 30); do
+              result=$(curl -fsSG --data-urlencode 'query=ALERTS{alertname="ApplicationUnavailable",alertstate="firing"}' http://localhost:19090/api/v1/query)
+              if printf '%s' "$result" | python -c 'import json,sys; assert not json.load(sys.stdin)["data"]["result"]'; then recovered=1; break; fi
+              sleep 3
+            done
+            test "$recovered" = 1
+            query 'up{job="application"}'
+            echo 'Application alert fired during outage and cleared after recovery.'
+            kill "$prom_pid" "$grafana_pid"
+            trap - EXIT
+          }
+
+          gitops() {
+            kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+            kubectl apply --server-side -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+            kubectl -n argocd rollout status deployment/argocd-repo-server --timeout=360s
+            kubectl -n argocd rollout status statefulset/argocd-application-controller --timeout=360s
+            kubectl apply -f "$section/argocd-application.yaml"
+            revision="coursework-gitops-${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
+            git config user.name Yeashu
+            git config user.email yeashusemwal@gmail.com
+            export GIT_AUTHOR_DATE="$(git show -s --format=%aI HEAD)"
+            export GIT_COMMITTER_DATE="$(git show -s --format=%cI HEAD)"
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('session20-monitoring/gitops/app.yaml')
+          resources = [json.loads(document) for document in path.read_text().split('\n---\n')]
+          for resource in resources:
+              if resource['kind'] == 'Deployment':
+                  resource['spec']['replicas'] = 2
+          path.write_text('\n---\n'.join(json.dumps(resource, indent=2) for resource in resources) + '\n')
+          PY
+            git add session20-monitoring/gitops/app.yaml
+            if ! git diff --cached --quiet; then
+              git commit -m 'Initialize GitOps scaling demonstration [skip ci]'
+            fi
+            git push origin "HEAD:$revision"
+            kubectl -n argocd patch application coursework-gitops --type=merge -p "{\"spec\":{\"source\":{\"targetRevision\":\"$revision\"}}}"
+            healthy=0
+            for attempt in $(seq 1 90); do
+              sync=$(kubectl -n argocd get application coursework-gitops -o jsonpath='{.status.sync.status}')
+              health=$(kubectl -n argocd get application coursework-gitops -o jsonpath='{.status.health.status}')
+              if [[ "$sync" == Synced && "$health" == Healthy ]]; then healthy=1; break; fi
+              sleep 5
+            done
+            test "$healthy" = 1
+            kubectl -n argocd get application coursework-gitops -o wide
+            kubectl -n "$ns" rollout status deployment/gitops-web --timeout=240s
+            test "$(kubectl -n "$ns" get deployment gitops-web -o jsonpath='{.status.readyReplicas}')" = 2
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('session20-monitoring/gitops/app.yaml')
+          resources = [json.loads(document) for document in path.read_text().split('\n---\n')]
+          for resource in resources:
+              if resource['kind'] == 'Deployment':
+                  resource['spec']['replicas'] = 3
+          path.write_text('\n---\n'.join(json.dumps(resource, indent=2) for resource in resources) + '\n')
+          PY
+            git config user.name Yeashu
+            git config user.email yeashusemwal@gmail.com
+            export GIT_AUTHOR_DATE="$(git show -s --format=%aI HEAD)"
+            export GIT_COMMITTER_DATE="$(git show -s --format=%cI HEAD)"
+            git add session20-monitoring/gitops/app.yaml
+            git commit -m 'Demonstrate GitOps scaling [skip ci]'
+            git push origin "HEAD:$revision"
+            kubectl -n argocd annotate application coursework-gitops argocd.argoproj.io/refresh=hard --overwrite
+            converged=0
+            for attempt in $(seq 1 60); do
+              replicas=$(kubectl -n "$ns" get deployment gitops-web -o jsonpath='{.status.readyReplicas}')
+              if [[ "$replicas" == 3 ]]; then converged=1; break; fi
+              sleep 5
+            done
+            test "$converged" = 1
+            kubectl -n "$ns" get deployment gitops-web
+            kubectl -n "$ns" scale deployment/gitops-web --replicas=1
+            kubectl -n "$ns" get deployment gitops-web
+            kubectl -n argocd annotate application coursework-gitops argocd.argoproj.io/refresh=hard --overwrite
+            healed=0
+            for attempt in $(seq 1 60); do
+              replicas=$(kubectl -n "$ns" get deployment gitops-web -o jsonpath='{.status.readyReplicas}')
+              desired=$(kubectl -n "$ns" get deployment gitops-web -o jsonpath='{.spec.replicas}')
+              if [[ "$replicas" == 3 && "$desired" == 3 ]]; then healed=1; break; fi
+              sleep 5
+            done
+            test "$healed" = 1
+            kubectl -n "$ns" get deployment gitops-web
+            echo 'Git change scaled two replicas to three; direct cluster drift was reconciled back to three.'
+            kubectl -n "$ns" get configmap gitops-page -o yaml
+            kubectl -n "$ns" patch configmap gitops-page --type=merge -p '{"data":{"index.html":"DRIFT introduced directly in the cluster"}}'
+            kubectl -n "$ns" get configmap gitops-page -o jsonpath='{.data.index\.html}{"\n"}'
+            kubectl -n argocd annotate application coursework-gitops argocd.argoproj.io/refresh=hard --overwrite
+            restored=0
+            for attempt in $(seq 1 60); do
+              page=$(kubectl -n "$ns" get configmap gitops-page -o jsonpath='{.data.index\.html}')
+              if [[ "$page" == 'Managed from Git: coursework GitOps demo' ]]; then restored=1; break; fi
+              sleep 5
+            done
+            test "$restored" = 1
+            kubectl -n "$ns" get configmap gitops-page -o yaml
+            kubectl -n argocd get application coursework-gitops -o wide
+            kubectl -n "$ns" run gitops-client --rm -i --restart=Never --image=busybox:1.36 --command -- wget -qO- http://gitops-web
+            echo 'Argo CD restored Git-defined configuration after live drift.'
+          }
+
+          mkdir -p "$section/screenshots"
+          record "$section/evidence/01-monitoring-alerts.txt" monitoring
+          record "$section/evidence/02-gitops-reconciliation.txt" gitops
+          kubectl delete namespace "$ns" argocd --wait=false
+      - name: Render evidence
+        run: |
+          python - Hello-CICD session20-monitoring <<'PY'
+          #!/usr/bin/env python3
+          """Render genuine saved lab output and embed each image in its session README."""
+          import argparse
+          import re
+          import textwrap
+          from pathlib import Path
+
+          from PIL import Image, ImageDraw, ImageFont
+
+
+          def main():
+              parser = argparse.ArgumentParser()
+              parser.add_argument("sessions", nargs="+")
+              args = parser.parse_args()
+              for name in args.sessions:
+                  root = Path(name)
+                  outputs = sorted((root / "evidence").glob("*.txt"))
+                  if not outputs:
+                      raise SystemExit(f"No recorded output for {name}")
+                  blocks = ["## Recorded execution evidence", "",
+                            "These PNGs render the saved output of real commands. Each image links to its complete transcript.", ""]
+                  for source in outputs:
+                      text = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", source.read_text(errors="replace"))
+                      lines = [part for line in text.splitlines() for part in
+                               (textwrap.wrap(line.expandtabs(4), 118, replace_whitespace=False) or [""])]
+                      font_path = next((p for p in ["/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+                                                   "/System/Library/Fonts/Menlo.ttc"] if Path(p).exists()), None)
+                      font = ImageFont.truetype(font_path, 16) if font_path else ImageFont.load_default()
+                      for page, start in enumerate(range(0, max(1, len(lines)), 55), 1):
+                          shown = lines[start:start + 55]
+                          image = Image.new("RGB", (1280, 112 + 23 * len(shown)), "#0d1117")
+                          draw = ImageDraw.Draw(image)
+                          draw.rectangle((0, 0, 1280, 46), fill="#21262d")
+                          draw.text((22, 14), f"{root.name} / {source.name} / {page}", font=font, fill="#f0f6fc")
+                          for i, line in enumerate(shown):
+                              draw.text((22, 62 + i * 23), line, font=font,
+                                        fill="#7ee787" if line.startswith("$ ") else "#c9d1d9")
+                          draw.text((22, image.height - 30), "Recorded command output; full transcript linked below", font=font, fill="#8b949e")
+                          destination = root / "screenshots" / f"{source.stem}-{page:02}.png"
+                          destination.parent.mkdir(parents=True, exist_ok=True)
+                          image.save(destination)
+                          blocks += [f"![{source.stem}, page {page}]({destination.relative_to(root)})", ""]
+                      blocks += [f"[Complete commands and output: {source.name}]({source.relative_to(root)})", ""]
+                  readme = root / "README.md"
+                  current = readme.read_text().split("## Recorded execution evidence")[0].rstrip()
+                  readme.write_text(current + "\n\n" + "\n".join(blocks))
+
+
+          if __name__ == "__main__":
+              main()
+
+          PY
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-devsecops
+          path: |
+            README.md
+            Hello-CICD/README.md
+            Hello-CICD/evidence/
+            Hello-CICD/screenshots/
+            Hello-CICD/test-results.xml
+            session20-monitoring/README.md
+            session20-monitoring/evidence/
+            session20-monitoring/screenshots/
+            session20-monitoring/gitops/
+          retention-days: 14
+
+  terraform:
+    name: Terraform configuration verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install Pillow
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - name: Verify schemas and mock-provider plans
+        run: |
+          set -euo pipefail
+
+          repo_root="$GITHUB_WORKSPACE"
+          cd "$repo_root"
+
+          record() {
+            local destination="$1"
+            shift
+            mkdir -p "$(dirname "$destination")"
+            (
+              set -euo pipefail
+              PS4='$ '
+              set -x
+              "$@"
+            ) > "$destination" 2>&1
+            cat "$destination"
+          }
+
+          wait_ready() {
+            kubectl -n "$ns" wait --for=condition=Ready "pod/$1" --timeout=240s
+          }
+
+          expect_error() {
+            local expected="$1"
+            shift
+            local result
+            if result=$("$@" 2>&1); then
+              printf '%s\n' "$result"
+              echo "Expected a failure but the command succeeded." >&2
+              return 1
+            fi
+            printf '%s\n' "$result"
+            [[ "$result" == *"$expected"* ]]
+          }
+
+          publish_image() {
+          set -euo pipefail
+          source_image="$1"
+          package="$2"
+          output="$3"
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          destination="ghcr.io/$owner/$package:${GITHUB_SHA}"
+          mkdir -p "$(dirname "$output")"
+          printf '%s' "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker tag "$source_image" "$destination"
+          {
+            printf '$ docker push %s\n' "$destination"
+            docker push "$destination"
+            printf '$ docker image inspect %s --format {{.Id}}\n' "$destination"
+            docker image inspect "$destination" --format '{{.Id}}'
+          } > "$output" 2>&1
+          cat "$output"
+
+          }
+
+
+          verify() {
+            local directory="$1"
+            cd "$repo_root/$directory"
+            terraform version
+            terraform init -backend=false -input=false -no-color
+            terraform fmt -check -recursive
+            terraform validate -no-color
+            terraform test -no-color
+            terraform graph
+          }
+
+          record session18-terraform-iac/evidence/01-terraform-verification.txt verify session18-terraform-iac/terraform-s3-demo
+          record session19-cloud-terraform/evidence/01-terraform-verification.txt verify session19-cloud-terraform/cloud-infra
+      - name: Render evidence
+        run: |
+          python - session18-terraform-iac session19-cloud-terraform <<'PY'
+          #!/usr/bin/env python3
+          """Render genuine saved lab output and embed each image in its session README."""
+          import argparse
+          import re
+          import textwrap
+          from pathlib import Path
+
+          from PIL import Image, ImageDraw, ImageFont
+
+
+          def main():
+              parser = argparse.ArgumentParser()
+              parser.add_argument("sessions", nargs="+")
+              args = parser.parse_args()
+              for name in args.sessions:
+                  root = Path(name)
+                  outputs = sorted((root / "evidence").glob("*.txt"))
+                  if not outputs:
+                      raise SystemExit(f"No recorded output for {name}")
+                  blocks = ["## Recorded execution evidence", "",
+                            "These PNGs render the saved output of real commands. Each image links to its complete transcript.", ""]
+                  for source in outputs:
+                      text = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", source.read_text(errors="replace"))
+                      lines = [part for line in text.splitlines() for part in
+                               (textwrap.wrap(line.expandtabs(4), 118, replace_whitespace=False) or [""])]
+                      font_path = next((p for p in ["/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+                                                   "/System/Library/Fonts/Menlo.ttc"] if Path(p).exists()), None)
+                      font = ImageFont.truetype(font_path, 16) if font_path else ImageFont.load_default()
+                      for page, start in enumerate(range(0, max(1, len(lines)), 55), 1):
+                          shown = lines[start:start + 55]
+                          image = Image.new("RGB", (1280, 112 + 23 * len(shown)), "#0d1117")
+                          draw = ImageDraw.Draw(image)
+                          draw.rectangle((0, 0, 1280, 46), fill="#21262d")
+                          draw.text((22, 14), f"{root.name} / {source.name} / {page}", font=font, fill="#f0f6fc")
+                          for i, line in enumerate(shown):
+                              draw.text((22, 62 + i * 23), line, font=font,
+                                        fill="#7ee787" if line.startswith("$ ") else "#c9d1d9")
+                          draw.text((22, image.height - 30), "Recorded command output; full transcript linked below", font=font, fill="#8b949e")
+                          destination = root / "screenshots" / f"{source.stem}-{page:02}.png"
+                          destination.parent.mkdir(parents=True, exist_ok=True)
+                          image.save(destination)
+                          blocks += [f"![{source.stem}, page {page}]({destination.relative_to(root)})", ""]
+                      blocks += [f"[Complete commands and output: {source.name}]({source.relative_to(root)})", ""]
+                  readme = root / "README.md"
+                  current = readme.read_text().split("## Recorded execution evidence")[0].rstrip()
+                  readme.write_text(current + "\n\n" + "\n".join(blocks))
+
+
+          if __name__ == "__main__":
+              main()
+
+          PY
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-terraform
+          include-hidden-files: true
+          path: |
+            README.md
+            session18-terraform-iac/README.md
+            session18-terraform-iac/evidence/
+            session18-terraform-iac/screenshots/
+            session18-terraform-iac/terraform-s3-demo/.terraform.lock.hcl
+            session19-cloud-terraform/README.md
+            session19-cloud-terraform/evidence/
+            session19-cloud-terraform/screenshots/
+            session19-cloud-terraform/cloud-infra/.terraform.lock.hcl
+          retention-days: 14
+
+  assemble:
+    name: Collect verified coursework and screenshots
+    needs: [kubernetes, cicd, devsecops, terraform]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: evidence-*
+          merge-multiple: true
+      - name: Build submission index and verify links
+        env:
+          COURSEWORK_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python -m pip install Pillow
+          python - linux-fundamentals shell-scripting networking git-and-github session9-k8s session10-k8s-core-objects session-11-kubernetes-services session-12-ingress-configmaps-secrets session13-storage-hpa-probes session14-troubleshooting session15-helm session16-cicd Hello-CICD session18-terraform-iac session19-cloud-terraform session20-monitoring <<'PY'
+          #!/usr/bin/env python3
+          """Render genuine saved lab output and embed each image in its session README."""
+          import argparse
+          import re
+          import textwrap
+          from pathlib import Path
+
+          from PIL import Image, ImageDraw, ImageFont
+
+
+          def main():
+              parser = argparse.ArgumentParser()
+              parser.add_argument("sessions", nargs="+")
+              args = parser.parse_args()
+              for name in args.sessions:
+                  root = Path(name)
+                  outputs = sorted((root / "evidence").glob("*.txt"))
+                  if not outputs:
+                      raise SystemExit(f"No recorded output for {name}")
+                  blocks = ["## Recorded execution evidence", "",
+                            "These PNGs render the saved output of real commands. Each image links to its complete transcript.", ""]
+                  for source in outputs:
+                      text = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", source.read_text(errors="replace"))
+                      lines = [part for line in text.splitlines() for part in
+                               (textwrap.wrap(line.expandtabs(4), 118, replace_whitespace=False) or [""])]
+                      font_path = next((p for p in ["/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+                                                   "/System/Library/Fonts/Menlo.ttc"] if Path(p).exists()), None)
+                      font = ImageFont.truetype(font_path, 16) if font_path else ImageFont.load_default()
+                      for page, start in enumerate(range(0, max(1, len(lines)), 55), 1):
+                          shown = lines[start:start + 55]
+                          image = Image.new("RGB", (1280, 112 + 23 * len(shown)), "#0d1117")
+                          draw = ImageDraw.Draw(image)
+                          draw.rectangle((0, 0, 1280, 46), fill="#21262d")
+                          draw.text((22, 14), f"{root.name} / {source.name} / {page}", font=font, fill="#f0f6fc")
+                          for i, line in enumerate(shown):
+                              draw.text((22, 62 + i * 23), line, font=font,
+                                        fill="#7ee787" if line.startswith("$ ") else "#c9d1d9")
+                          draw.text((22, image.height - 30), "Recorded command output; full transcript linked below", font=font, fill="#8b949e")
+                          destination = root / "screenshots" / f"{source.stem}-{page:02}.png"
+                          destination.parent.mkdir(parents=True, exist_ok=True)
+                          image.save(destination)
+                          blocks += [f"![{source.stem}, page {page}]({destination.relative_to(root)})", ""]
+                      blocks += [f"[Complete commands and output: {source.name}]({source.relative_to(root)})", ""]
+                  readme = root / "README.md"
+                  current = readme.read_text().split("## Recorded execution evidence")[0].rstrip()
+                  readme.write_text(current + "\n\n" + "\n".join(blocks))
+
+
+          if __name__ == "__main__":
+              main()
+
+          PY
+          python - <<'PY'
+          #!/usr/bin/env python3
+          """Build the submission index from verified artifacts and check relative links."""
+          import os
+          import re
+          from pathlib import Path
+
+          SECTIONS = [
+              ('1 & 2', 'Linux Fundamentals', 'linux-fundamentals'),
+              ('3', 'Shell Scripting', 'shell-scripting'),
+              ('4', 'Networking', 'networking'),
+              ('5', 'Git and GitHub', 'git-and-github'),
+              ('6', 'Docker Fundamentals', 'docker-fundamentals'),
+              ('7', 'Docker Images', 'docker-images'),
+              ('8', 'Docker Networking', 'docker-networking'),
+              ('9', 'Kubernetes Fundamentals', 'session9-k8s'),
+              ('10', 'Pods, ReplicaSets & Deployments', 'session10-k8s-core-objects'),
+              ('11', 'Networking & Services', 'session-11-kubernetes-services'),
+              ('12', 'Ingress, ConfigMaps & Secrets', 'session-12-ingress-configmaps-secrets'),
+              ('13', 'Storage, HPA & Probes', 'session13-storage-hpa-probes'),
+              ('14', 'Kubernetes Troubleshooting', 'session14-troubleshooting'),
+              ('15', 'Helm', 'session15-helm'),
+              ('16', 'CI/CD & GitHub Actions', 'session16-cicd'),
+              ('17', 'Complete CI/CD & DevSecOps', 'Hello-CICD'),
+              ('18', 'Terraform & Infrastructure as Code', 'session18-terraform-iac'),
+              ('19', 'Cloud & Terraform in Action', 'session19-cloud-terraform'),
+              ('20', 'Monitoring, Observability & GitOps', 'session20-monitoring'),
+          ]
+
+
+          def main():
+              run_url = os.environ.get('COURSEWORK_RUN_URL')
+              lines = ['# DevOps Coursework', '',
+                       '**Student:** Prabhav Semwal · **Enrollment:** 24BCS10358', '',
+                       'Each assignment README links its code, exact commands, explanations and execution evidence.', '',
+                       '| Session | Assignment README |', '| --- | --- |']
+              for number, title, directory in SECTIONS:
+                  lines.append(f'| {number} | [{title}]({directory}/README.md) |')
+                  readme = Path(directory) / 'README.md'
+                  if not readme.exists():
+                      raise SystemExit(f'Missing README: {readme}')
+                  if run_url and directory in ['git-and-github', 'linux-fundamentals', 'session9-k8s',
+                                              'session-12-ingress-configmaps-secrets', 'session13-storage-hpa-probes',
+                                              'session14-troubleshooting', 'session15-helm', 'session16-cicd',
+                                              'Hello-CICD', 'session18-terraform-iac', 'session19-cloud-terraform', 'session20-monitoring']:
+                      text = readme.read_text()
+                      text = re.sub(r'\n\[Verified workflow execution\]\([^\n]+\)\n?', '\n', text)
+                      readme.write_text(text.rstrip() + f'\n\n[Verified workflow execution]({run_url})\n')
+              lines += ['', '## Evidence', '',
+                        'Docker application pages were captured from running containers. Terminal PNGs and SVGs render real saved command output and link to their source transcripts. The hosted coursework workflow executes isolated Minikube labs and retains build artifacts.', '',
+                        'Terraform sections demonstrate configuration verification and mock-provider plan assertions.', '']
+              Path('README.md').write_text('\n'.join(lines))
+              for _, _, directory in SECTIONS:
+                  for readme in Path(directory).rglob('README.md'):
+                      if any(part in readme.parts for part in ['.venv', '.pytest_cache', 'node_modules']):
+                          continue
+                      for target in re.findall(r'!?\[[^\]]*\]\(([^)]+)\)', readme.read_text()):
+                          if target.startswith(('http:', 'https:', '#')):
+                              continue
+                          if not (readme.parent / target.split('#')[0]).exists():
+                              raise SystemExit(f'Broken link in {readme}: {target}')
+              print(f'Verified READMEs and relative links for {len(SECTIONS)} assignment sections.')
+
+
+          if __name__ == '__main__':
+              main()
+
+          PY
+      - name: Upload completed READMEs and screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: coursework-submission-evidence
+          include-hidden-files: true
+          path: |
+            README.md
+            **/README.md
+            **/evidence/*.txt
+            **/screenshots/*.png
+            session18-terraform-iac/terraform-s3-demo/.terraform.lock.hcl
+            session19-cloud-terraform/cloud-infra/.terraform.lock.hcl
+            session20-monitoring/gitops/app.yaml
+          retention-days: 14

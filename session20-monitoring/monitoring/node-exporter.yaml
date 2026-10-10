@@ -1,0 +1,94 @@
+{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "node-exporter"
+  },
+  "spec": {
+    "replicas": 1,
+    "selector": {
+      "matchLabels": {
+        "app": "node-exporter"
+      }
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "node-exporter"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "name": "app",
+            "image": "prom/node-exporter:latest",
+            "ports": [
+              {
+                "containerPort": 9100
+              }
+            ],
+            "args": [
+              "--path.procfs=/host/proc",
+              "--path.sysfs=/host/sys"
+            ],
+            "resources": {
+              "requests": {
+                "cpu": "20m",
+                "memory": "32Mi"
+              },
+              "limits": {
+                "cpu": "200m",
+                "memory": "96Mi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "proc",
+                "mountPath": "/host/proc",
+                "readOnly": true
+              },
+              {
+                "name": "sys",
+                "mountPath": "/host/sys",
+                "readOnly": true
+              }
+            ]
+          }
+        ],
+        "volumes": [
+          {
+            "name": "proc",
+            "hostPath": {
+              "path": "/proc"
+            }
+          },
+          {
+            "name": "sys",
+            "hostPath": {
+              "path": "/sys"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
+---
+{
+  "apiVersion": "v1",
+  "kind": "Service",
+  "metadata": {
+    "name": "node-exporter"
+  },
+  "spec": {
+    "selector": {
+      "app": "node-exporter"
+    },
+    "ports": [
+      {
+        "port": 9100,
+        "targetPort": 9100
+      }
+    ]
+  }
+}

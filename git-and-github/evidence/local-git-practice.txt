@@ -1,0 +1,131 @@
+$ git init --initial-branch=main
+
+Initialized empty Git repository in /Users/yk/Desktop/coursework/DevOps assignment/DevOps-Coursework/.coursework-work/git-practice/.git/
+
+$ git config user.name 'Prabhav Semwal'
+
+
+
+$ git config user.email coursework@example.invalid
+
+
+
+$ git add tracked-example.txt
+
+
+
+$ git commit -m 'Initialize main example'
+
+[main (root-commit) cf2e987] Initialize main example
+ 1 file changed, 1 insertion(+)
+ create mode 100644 tracked-example.txt
+
+$ git status --short
+
+ M tracked-example.txt
+?? untracked-example.txt
+
+$ git commit -a -m 'Automatically stage the tracked change'
+
+[main 03478b9] Automatically stage the tracked change
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+$ git status --short
+
+?? untracked-example.txt
+
+$ git commit -m 'A message alone does not stage a new file'
+
+On branch main
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	untracked-example.txt
+
+nothing added to commit but untracked files present (use "git add" to track)
+
+$ git add untracked-example.txt
+
+
+
+$ git commit -m 'Explicitly stage the new file'
+
+[main 976e7ba] Explicitly stage the new file
+ 1 file changed, 1 insertion(+)
+ create mode 100644 untracked-example.txt
+
+$ git log --oneline
+
+976e7ba Explicitly stage the new file
+03478b9 Automatically stage the tracked change
+cf2e987 Initialize main example
+
+$ git switch -c cherry-pick-practice
+
+Switched to a new branch 'cherry-pick-practice'
+
+$ git add branch-only-notes.txt
+
+
+
+$ git commit -m 'Add a branch-only change'
+
+[cherry-pick-practice 8f8442f] Add a branch-only change
+ 1 file changed, 1 insertion(+)
+ create mode 100644 branch-only-notes.txt
+
+$ git add cherry-picked-change.txt
+
+
+
+$ git commit -m 'Add the selected change'
+
+[cherry-pick-practice fa6196d] Add the selected change
+ 1 file changed, 1 insertion(+)
+ create mode 100644 cherry-picked-change.txt
+
+$ git rev-parse HEAD
+
+fa6196dd502be642c5400005f5d44b8ea771b2d0
+
+$ git add third-branch-note.txt
+
+
+
+$ git commit -m 'Add a third branch note'
+
+[cherry-pick-practice 36910ef] Add a third branch note
+ 1 file changed, 1 insertion(+)
+ create mode 100644 third-branch-note.txt
+
+$ git log --oneline
+
+36910ef Add a third branch note
+fa6196d Add the selected change
+8f8442f Add a branch-only change
+976e7ba Explicitly stage the new file
+03478b9 Automatically stage the tracked change
+cf2e987 Initialize main example
+
+$ git switch main
+
+Switched to branch 'main'
+
+$ git cherry-pick fa6196dd502be642c5400005f5d44b8ea771b2d0
+
+[main fa78be0] Add the selected change
+ Date: Sat Oct 10 18:00:00 2026 +0530
+ 1 file changed, 1 insertion(+)
+ create mode 100644 cherry-picked-change.txt
+
+$ git log --oneline --graph --all
+
+* 36910ef Add a third branch note
+* fa6196d Add the selected change
+* 8f8442f Add a branch-only change
+| * fa78be0 Add the selected change
+|/
+* 976e7ba Explicitly stage the new file
+* 03478b9 Automatically stage the tracked change
+* cf2e987 Initialize main example
+
+Verified: selected change is on main; branch-only changes remain on the practice branch.
