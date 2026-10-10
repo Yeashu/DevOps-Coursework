@@ -1,0 +1,229 @@
+$ scheduling_and_mounts
+$ kubectl -n coursework-s14 apply -f session14-troubleshooting/labs/broken-pending.yaml
+pod/pending-demo created
+$ sleep 5
+$ kubectl -n coursework-s14 get pod pending-demo
+NAME           READY   STATUS    RESTARTS   AGE
+pending-demo   0/1     Pending   0          5s
+$ kubectl -n coursework-s14 describe pod pending-demo
+Name:             pending-demo
+Namespace:        coursework-s14
+Priority:         0
+Service Account:  default
+Node:             <none>
+Labels:           app=pending-demo
+Annotations:      <none>
+Status:           Pending
+IP:
+IPs:              <none>
+Containers:
+  app:
+    Image:      busybox:1.36
+    Port:       <none>
+    Host Port:  <none>
+    Command:
+      sleep
+      3600
+    Requests:
+      cpu:        1k
+    Environment:  <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-6kdd9 (ro)
+Conditions:
+  Type           Status
+  PodScheduled   False
+Volumes:
+  kube-api-access-6kdd9:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   Burstable
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason            Age   From               Message
+  ----     ------            ----  ----               -------
+  Warning  FailedScheduling  5s    default-scheduler  0/1 nodes are available: 1 Insufficient cpu. preemption: 0/1 nodes are available: 1 Preemption is not helpful for scheduling.
+$$ kubectl -n coursework-s14 get pod pending-demo -o 'jsonpath={.status.phase}'
+$ phase=Pending
+$ test Pending = Pending
+$ kubectl -n coursework-s14 delete pod pending-demo
+pod "pending-demo" deleted from coursework-s14 namespace
+$ kubectl -n coursework-s14 apply -f session14-troubleshooting/labs/fixed-pending.yaml
+pod/pending-demo created
+$ wait_ready pending-demo
+$ kubectl -n coursework-s14 wait --for=condition=Ready pod/pending-demo --timeout=240s
+pod/pending-demo condition met
+$ kubectl -n coursework-s14 apply -f session14-troubleshooting/labs/broken-mount.yaml
+pod/mount-demo created
+$ sleep 8
+$ kubectl -n coursework-s14 get pod mount-demo
+NAME         READY   STATUS              RESTARTS   AGE
+mount-demo   0/1     ContainerCreating   0          8s
+$ kubectl -n coursework-s14 describe pod mount-demo
+Name:             mount-demo
+Namespace:        coursework-s14
+Priority:         0
+Service Account:  default
+Node:             minikube/192.168.49.2
+Start Time:       Wed, 14 Oct 2026 17:34:30 +0000
+Labels:           app=mount-demo
+Annotations:      <none>
+Status:           Pending
+IP:
+IPs:              <none>
+Containers:
+  app:
+    Container ID:
+    Image:         busybox:1.36
+    Image ID:
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      sleep
+      3600
+    State:          Waiting
+      Reason:       ContainerCreating
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /config from config (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-q4djn (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
+Volumes:
+  config:
+    Type:      ConfigMap (a volume populated by a ConfigMap)
+    Name:      missing-config
+    Optional:  false
+  kube-api-access-q4djn:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason       Age              From               Message
+  ----     ------       ----             ----               -------
+  Normal   Scheduled    8s               default-scheduler  Successfully assigned coursework-s14/mount-demo to minikube
+  Warning  FailedMount  1s (x5 over 8s)  kubelet            MountVolume.SetUp failed for volume "config" : configmap "missing-config" not found
+$ kubectl -n coursework-s14 create configmap missing-config --from-literal=mode=incorrect
+configmap/missing-config created
+$ wait_ready mount-demo
+$ kubectl -n coursework-s14 wait --for=condition=Ready pod/mount-demo --timeout=240s
+pod/mount-demo condition met
+$ kubectl -n coursework-s14 exec mount-demo -- cat /config/mode
+incorrect$ kubectl -n coursework-s14 patch configmap missing-config --type=merge -p '{"data":{"mode":"corrected"}}'
+configmap/missing-config patched
+$$ seq 1 30
+$ for attempt in $(seq 1 30)
+$$ kubectl -n coursework-s14 exec mount-demo -- cat /config/mode
+$ value=incorrect
+$ [[ incorrect == corrected ]]
+$ sleep 5
+$ for attempt in $(seq 1 30)
+$$ kubectl -n coursework-s14 exec mount-demo -- cat /config/mode
+$ value=incorrect
+$ [[ incorrect == corrected ]]
+$ sleep 5
+$ for attempt in $(seq 1 30)
+$$ kubectl -n coursework-s14 exec mount-demo -- cat /config/mode
+$ value=incorrect
+$ [[ incorrect == corrected ]]
+$ sleep 5
+$ for attempt in $(seq 1 30)
+$$ kubectl -n coursework-s14 exec mount-demo -- cat /config/mode
+$ value=incorrect
+$ [[ incorrect == corrected ]]
+$ sleep 5
+$ for attempt in $(seq 1 30)
+$$ kubectl -n coursework-s14 exec mount-demo -- cat /config/mode
+$ value=incorrect
+$ [[ incorrect == corrected ]]
+$ sleep 5
+$ for attempt in $(seq 1 30)
+$$ kubectl -n coursework-s14 exec mount-demo -- cat /config/mode
+$ value=incorrect
+$ [[ incorrect == corrected ]]
+$ sleep 5
+$ for attempt in $(seq 1 30)
+$$ kubectl -n coursework-s14 exec mount-demo -- cat /config/mode
+$ value=incorrect
+$ [[ incorrect == corrected ]]
+$ sleep 5
+$ for attempt in $(seq 1 30)
+$$ kubectl -n coursework-s14 exec mount-demo -- cat /config/mode
+$ value=incorrect
+$ [[ incorrect == corrected ]]
+$ sleep 5
+$ for attempt in $(seq 1 30)
+$$ kubectl -n coursework-s14 exec mount-demo -- cat /config/mode
+$ value=incorrect
+$ [[ incorrect == corrected ]]
+$ sleep 5
+$ for attempt in $(seq 1 30)
+$$ kubectl -n coursework-s14 exec mount-demo -- cat /config/mode
+$ value=incorrect
+$ [[ incorrect == corrected ]]
+$ sleep 5
+$ for attempt in $(seq 1 30)
+$$ kubectl -n coursework-s14 exec mount-demo -- cat /config/mode
+$ value=incorrect
+$ [[ incorrect == corrected ]]
+$ sleep 5
+$ for attempt in $(seq 1 30)
+$$ kubectl -n coursework-s14 exec mount-demo -- cat /config/mode
+$ value=incorrect
+$ [[ incorrect == corrected ]]
+$ sleep 5
+$ for attempt in $(seq 1 30)
+$$ kubectl -n coursework-s14 exec mount-demo -- cat /config/mode
+$ value=incorrect
+$ [[ incorrect == corrected ]]
+$ sleep 5
+$ for attempt in $(seq 1 30)
+$$ kubectl -n coursework-s14 exec mount-demo -- cat /config/mode
+$ value=incorrect
+$ [[ incorrect == corrected ]]
+$ sleep 5
+$ for attempt in $(seq 1 30)
+$$ kubectl -n coursework-s14 exec mount-demo -- cat /config/mode
+$ value=incorrect
+$ [[ incorrect == corrected ]]
+$ sleep 5
+$ for attempt in $(seq 1 30)
+$$ kubectl -n coursework-s14 exec mount-demo -- cat /config/mode
+$ value=incorrect
+$ [[ incorrect == corrected ]]
+$ sleep 5
+$ for attempt in $(seq 1 30)
+$$ kubectl -n coursework-s14 exec mount-demo -- cat /config/mode
+$ value=incorrect
+$ [[ incorrect == corrected ]]
+$ sleep 5
+$ for attempt in $(seq 1 30)
+$$ kubectl -n coursework-s14 exec mount-demo -- cat /config/mode
+$ value=incorrect
+$ [[ incorrect == corrected ]]
+$ sleep 5
+$ for attempt in $(seq 1 30)
+$$ kubectl -n coursework-s14 exec mount-demo -- cat /config/mode
+$ value=corrected
+$ [[ corrected == corrected ]]
+$ break
+$ test corrected = corrected
+$ kubectl -n coursework-s14 exec mount-demo -- cat /config/mode
+corrected

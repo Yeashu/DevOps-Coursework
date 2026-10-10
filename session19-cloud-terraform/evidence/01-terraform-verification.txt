@@ -1,0 +1,53 @@
+$ verify session19-cloud-terraform/cloud-infra
+$ local directory=session19-cloud-terraform/cloud-infra
+$ cd /home/runner/work/DevOps-Coursework/DevOps-Coursework/session19-cloud-terraform/cloud-infra
+$ terraform version
+Terraform v1.16.6
+on linux_amd64
++ provider registry.terraform.io/hashicorp/aws v6.66.0
+$ terraform init -backend=false -input=false -no-color
+Initializing provider plugins...
+- Reusing previous version of hashicorp/aws from the dependency lock file
+- Installing hashicorp/aws v6.66.0...
+- Installed hashicorp/aws v6.66.0 (signed by HashiCorp)
+
+Terraform has made some changes to the provider dependency selections recorded
+in the .terraform.lock.hcl file. Review those changes and commit them to your
+version control system if they represent changes you intended to make.
+
+Terraform has been successfully initialized!
+
+You may now begin working with Terraform. Try running "terraform plan" to see
+any changes that are required for your infrastructure. All Terraform commands
+should now work.
+
+If you ever set or change modules or backend configuration for Terraform,
+rerun this command to reinitialize your working directory. If you forget, other
+commands will detect it and remind you to do so if necessary.
+$ terraform fmt -check -recursive
+$ terraform validate -no-color
+Success! The configuration is valid.
+
+$ terraform test -no-color
+tests/verification.tftest.hcl... in progress
+  run "infrastructure_configuration"... pass
+tests/verification.tftest.hcl... tearing down
+tests/verification.tftest.hcl... pass
+
+Success! 1 passed, 0 failed.
+$ terraform graph
+digraph G {
+  rankdir = "RL";
+  node [shape = rect, fontname = "sans-serif"];
+  "aws_instance.app" [label="aws_instance.app"];
+  "aws_s3_bucket.artifacts" [label="aws_s3_bucket.artifacts"];
+  "aws_s3_bucket_public_access_block.artifacts" [label="aws_s3_bucket_public_access_block.artifacts"];
+  "aws_security_group.app" [label="aws_security_group.app"];
+  "aws_subnet.app" [label="aws_subnet.app"];
+  "aws_vpc.main" [label="aws_vpc.main"];
+  "aws_instance.app" -> "aws_security_group.app";
+  "aws_instance.app" -> "aws_subnet.app";
+  "aws_s3_bucket_public_access_block.artifacts" -> "aws_s3_bucket.artifacts";
+  "aws_security_group.app" -> "aws_vpc.main";
+  "aws_subnet.app" -> "aws_vpc.main";
+}

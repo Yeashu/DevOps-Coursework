@@ -39,3 +39,37 @@ Startup probes delay liveness/readiness evaluation until initialization succeeds
 [Kubernetes storage](https://kubernetes.io/docs/concepts/storage/volumes/) · [HPA](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/) · [Probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/)
 
 The mini-project uses two initial replicas, a 500Mi PVC mounted at `/data`, and HPA bounds of two to five replicas with a 50% CPU target. Recreate avoids overlapping rollout generations when sharing the single-node ReadWriteOnce volume.
+
+## Recorded execution evidence
+
+These PNGs render the saved output of real commands. Each image links to its complete transcript.
+
+![01-volumes, page 1](screenshots/01-volumes-01.png)
+
+![01-volumes, page 2](screenshots/01-volumes-02.png)
+
+[Complete commands and output: 01-volumes.txt](evidence/01-volumes.txt)
+
+![02-hpa, page 1](screenshots/02-hpa-01.png)
+
+![02-hpa, page 2](screenshots/02-hpa-02.png)
+
+![02-hpa, page 3](screenshots/02-hpa-03.png)
+
+![02-hpa, page 4](screenshots/02-hpa-04.png)
+
+![02-hpa, page 5](screenshots/02-hpa-05.png)
+
+![02-hpa, page 6](screenshots/02-hpa-06.png)
+
+[Complete commands and output: 02-hpa.txt](evidence/02-hpa.txt)
+
+![03-mini-project, page 1](screenshots/03-mini-project-01.png)
+
+![03-mini-project, page 2](screenshots/03-mini-project-02.png)
+
+![03-mini-project, page 3](screenshots/03-mini-project-03.png)
+
+[Complete commands and output: 03-mini-project.txt](evidence/03-mini-project.txt)
+
+[Recorded lab execution](https://github.com/Yeashu/DevOps-Coursework/actions/runs/38607298163/job/116001343399)

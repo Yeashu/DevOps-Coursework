@@ -1,0 +1,275 @@
+$ autoscaling
+$ kubectl -n coursework-s13 apply -f session13-storage-hpa-probes/02-hpa/hpa.yml
+deployment.apps/cpu-demo created
+service/cpu-demo created
+horizontalpodautoscaler.autoscaling/cpu-demo created
+$ kubectl -n coursework-s13 rollout status deployment/cpu-demo --timeout=240s
+Waiting for deployment "cpu-demo" rollout to finish: 0 of 1 updated replicas are available...
+deployment "cpu-demo" successfully rolled out
+$$ seq 1 36
+$ for attempt in $(seq 1 36)
+$ kubectl -n coursework-s13 top pods
+NAME            CPU(cores)   MEMORY(bytes)
+emptydir-demo   0m           0Mi
+hostpath-demo   1m           0Mi
+$ break
+$ kubectl -n coursework-s13 get hpa
+NAME       REFERENCE             TARGETS              MINPODS   MAXPODS   REPLICAS   AGE
+cpu-demo   Deployment/cpu-demo   cpu: <unknown>/30%   1         4         1          7s
+$ kubectl -n coursework-s13 describe hpa cpu-demo
+Name:                                                  cpu-demo
+Namespace:                                             coursework-s13
+Labels:                                                <none>
+Annotations:                                           <none>
+CreationTimestamp:                                     Wed, 14 Oct 2026 17:35:44 +0000
+Reference:                                             Deployment/cpu-demo
+Metrics:                                               ( current / target )
+  resource cpu on pods  (as a percentage of request):  <unknown> / 30%
+Min replicas:                                          1
+Max replicas:                                          4
+Behavior:
+  Scale Up:
+    Stabilization Window: 0 seconds
+    Select Policy: Max
+    Policies:
+      - Type: Pods     Value: 4    Period: 15 seconds
+      - Type: Percent  Value: 100  Period: 15 seconds
+  Scale Down:
+    Stabilization Window: 15 seconds
+    Select Policy: Max
+    Policies:
+      - Type: Percent  Value: 100  Period: 15 seconds
+Deployment pods:       1 current / 0 desired
+Conditions:
+  Type           Status  Reason                   Message
+  ----           ------  ------                   -------
+  AbleToScale    True    SucceededGetScale        the HPA controller was able to get the target's current scale
+  ScalingActive  False   FailedGetResourceMetric  the HPA was unable to compute the replica count: failed to get cpu utilization: unable to get metrics for resource cpu: no metrics returned from resource metrics API
+Events:
+  Type     Reason                        Age   From                       Message
+  ----     ------                        ----  ----                       -------
+  Warning  FailedGetResourceMetric       7s    horizontal-pod-autoscaler  failed to get cpu utilization: unable to get metrics for resource cpu: no metrics returned from resource metrics API
+  Warning  FailedComputeMetricsReplicas  7s    horizontal-pod-autoscaler  invalid metrics (1 invalid out of 1), first error is: failed to get cpu resource metric value: failed to get cpu utilization: unable to get metrics for resource cpu: no metrics returned from resource metrics API
+$ kubectl -n coursework-s13 apply -f session13-storage-hpa-probes/02-hpa/load-generator.yaml
+pod/load-generator created
+$ wait_ready load-generator
+$ kubectl -n coursework-s13 wait --for=condition=Ready pod/load-generator --timeout=240s
+pod/load-generator condition met
+$ scaled=0
+$$ seq 1 72
+$ for attempt in $(seq 1 72)
+$ kubectl -n coursework-s13 get hpa
+NAME       REFERENCE             TARGETS              MINPODS   MAXPODS   REPLICAS   AGE
+cpu-demo   Deployment/cpu-demo   cpu: <unknown>/30%   1         4         1          7s
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=1
+$ ((  replicas >= 2  ))
+$ sleep 5
+$ for attempt in $(seq 1 72)
+$ kubectl -n coursework-s13 get hpa
+NAME       REFERENCE             TARGETS              MINPODS   MAXPODS   REPLICAS   AGE
+cpu-demo   Deployment/cpu-demo   cpu: <unknown>/30%   1         4         1          12s
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=1
+$ ((  replicas >= 2  ))
+$ sleep 5
+$ for attempt in $(seq 1 72)
+$ kubectl -n coursework-s13 get hpa
+NAME       REFERENCE             TARGETS              MINPODS   MAXPODS   REPLICAS   AGE
+cpu-demo   Deployment/cpu-demo   cpu: <unknown>/30%   1         4         1          18s
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=1
+$ ((  replicas >= 2  ))
+$ sleep 5
+$ for attempt in $(seq 1 72)
+$ kubectl -n coursework-s13 get hpa
+NAME       REFERENCE             TARGETS              MINPODS   MAXPODS   REPLICAS   AGE
+cpu-demo   Deployment/cpu-demo   cpu: <unknown>/30%   1         4         1          23s
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=1
+$ ((  replicas >= 2  ))
+$ sleep 5
+$ for attempt in $(seq 1 72)
+$ kubectl -n coursework-s13 get hpa
+NAME       REFERENCE             TARGETS              MINPODS   MAXPODS   REPLICAS   AGE
+cpu-demo   Deployment/cpu-demo   cpu: <unknown>/30%   1         4         1          28s
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=1
+$ ((  replicas >= 2  ))
+$ sleep 5
+$ for attempt in $(seq 1 72)
+$ kubectl -n coursework-s13 get hpa
+NAME       REFERENCE             TARGETS         MINPODS   MAXPODS   REPLICAS   AGE
+cpu-demo   Deployment/cpu-demo   cpu: 474%/30%   1         4         1          33s
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=4
+$ ((  replicas >= 2  ))
+$ scaled=1
+$ break
+$ test 1 = 1
+$ kubectl -n coursework-s13 rollout status deployment/cpu-demo --timeout=180s
+deployment "cpu-demo" successfully rolled out
+$ kubectl -n coursework-s13 get pods -o wide
+NAME                        READY   STATUS    RESTARTS   AGE     IP              NODE       NOMINATED NODE   READINESS GATES
+cpu-demo-74d9f77446-2fmlt   1/1     Running   0          3s      10.244.120.78   minikube   <none>           <none>
+cpu-demo-74d9f77446-9hc6q   1/1     Running   0          3s      10.244.120.79   minikube   <none>           <none>
+cpu-demo-74d9f77446-c6mgz   1/1     Running   0          3s      10.244.120.77   minikube   <none>           <none>
+cpu-demo-74d9f77446-k7c6p   1/1     Running   0          33s     10.244.120.75   minikube   <none>           <none>
+emptydir-demo               1/1     Running   0          2m27s   10.244.120.69   minikube   <none>           <none>
+hostpath-demo               1/1     Running   0          113s    10.244.120.71   minikube   <none>           <none>
+load-generator              1/1     Running   0          26s     10.244.120.76   minikube   <none>           <none>
+persistent-demo             1/1     Running   0          67s     10.244.120.73   minikube   <none>           <none>
+$ kubectl -n coursework-s13 top pods
+NAME                        CPU(cores)   MEMORY(bytes)
+cpu-demo-74d9f77446-k7c6p   474m         15Mi
+emptydir-demo               0m           0Mi
+hostpath-demo               0m           0Mi
+load-generator              13m          2Mi
+persistent-demo             1m           0Mi
+$ kubectl -n coursework-s13 describe hpa cpu-demo
+Name:                                                  cpu-demo
+Namespace:                                             coursework-s13
+Labels:                                                <none>
+Annotations:                                           <none>
+CreationTimestamp:                                     Wed, 14 Oct 2026 17:35:44 +0000
+Reference:                                             Deployment/cpu-demo
+Metrics:                                               ( current / target )
+  resource cpu on pods  (as a percentage of request):  474% (474m) / 30%
+Min replicas:                                          1
+Max replicas:                                          4
+Behavior:
+  Scale Up:
+    Stabilization Window: 0 seconds
+    Select Policy: Max
+    Policies:
+      - Type: Pods     Value: 4    Period: 15 seconds
+      - Type: Percent  Value: 100  Period: 15 seconds
+  Scale Down:
+    Stabilization Window: 15 seconds
+    Select Policy: Max
+    Policies:
+      - Type: Percent  Value: 100  Period: 15 seconds
+Deployment pods:       1 current / 4 desired
+Conditions:
+  Type            Status  Reason            Message
+  ----            ------  ------            -------
+  AbleToScale     True    SucceededRescale  the HPA controller was able to update the target scale to 4
+  ScalingActive   True    ValidMetricFound  the HPA was able to successfully calculate a replica count from cpu resource utilization (percentage of request)
+  ScalingLimited  True    TooManyReplicas   the desired replica count is more than the maximum replica count
+  ScaledToZero    False   NotScaledToZero   the HPA controller did not scale the workload to zero
+Events:
+  Type     Reason                        Age                From                       Message
+  ----     ------                        ----               ----                       -------
+  Warning  FailedGetResourceMetric       18s (x2 over 33s)  horizontal-pod-autoscaler  failed to get cpu utilization: unable to get metrics for resource cpu: no metrics returned from resource metrics API
+  Warning  FailedComputeMetricsReplicas  18s (x2 over 33s)  horizontal-pod-autoscaler  invalid metrics (1 invalid out of 1), first error is: failed to get cpu resource metric value: failed to get cpu utilization: unable to get metrics for resource cpu: no metrics returned from resource metrics API
+  Normal   SuccessfulRescale             3s                 horizontal-pod-autoscaler  New size: 4; reason: cpu resource utilization (percentage of request) above target
+$ kubectl -n coursework-s13 delete pod load-generator
+pod "load-generator" deleted from coursework-s13 namespace
+$$ seq 1 60
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=4
+$ ((  replicas == 1  ))
+$ sleep 5
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=4
+$ ((  replicas == 1  ))
+$ sleep 5
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=4
+$ ((  replicas == 1  ))
+$ sleep 5
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=4
+$ ((  replicas == 1  ))
+$ sleep 5
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=4
+$ ((  replicas == 1  ))
+$ sleep 5
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=4
+$ ((  replicas == 1  ))
+$ sleep 5
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=4
+$ ((  replicas == 1  ))
+$ sleep 5
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=4
+$ ((  replicas == 1  ))
+$ sleep 5
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=4
+$ ((  replicas == 1  ))
+$ sleep 5
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=4
+$ ((  replicas == 1  ))
+$ sleep 5
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=4
+$ ((  replicas == 1  ))
+$ sleep 5
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=4
+$ ((  replicas == 1  ))
+$ sleep 5
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=4
+$ ((  replicas == 1  ))
+$ sleep 5
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=4
+$ ((  replicas == 1  ))
+$ sleep 5
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=4
+$ ((  replicas == 1  ))
+$ sleep 5
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=4
+$ ((  replicas == 1  ))
+$ sleep 5
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=4
+$ ((  replicas == 1  ))
+$ sleep 5
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=4
+$ ((  replicas == 1  ))
+$ sleep 5
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s13 get deployment cpu-demo -o 'jsonpath={.spec.replicas}'
+$ replicas=1
+$ ((  replicas == 1  ))
+$ break
+$ test 1 = 1
+$ kubectl -n coursework-s13 get hpa,pods
+NAME                                           REFERENCE             TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+horizontalpodautoscaler.autoscaling/cpu-demo   Deployment/cpu-demo   cpu: 1%/30%   1         4         4          2m34s
+
+NAME                            READY   STATUS    RESTARTS   AGE
+pod/cpu-demo-74d9f77446-k7c6p   1/1     Running   0          2m34s
+pod/emptydir-demo               1/1     Running   0          4m28s
+pod/hostpath-demo               1/1     Running   0          3m54s
+pod/persistent-demo             1/1     Running   0          3m8s
+$ echo 'Verified scale-out under load and scale-in after load removal.'
+Verified scale-out under load and scale-in after load removal.

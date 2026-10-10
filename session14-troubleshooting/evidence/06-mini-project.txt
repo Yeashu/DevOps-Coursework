@@ -1,0 +1,360 @@
+$ mini_project
+$ kubectl -n coursework-s14 apply -f session14-troubleshooting/mini-project/broken-image.yaml
+pod/project-broken-pod created
+$ wait_reason project-broken-pod ImagePullBackOff
+$ local name=project-broken-pod reason=ImagePullBackOff
+$$ seq 1 60
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s14 get pod project-broken-pod -o 'jsonpath={.status.containerStatuses[0].state.waiting.reason}'
+$ actual=ContainerCreating
+$ [[ ContainerCreating == \I\m\a\g\e\P\u\l\l\B\a\c\k\O\f\f ]]
+$ sleep 3
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s14 get pod project-broken-pod -o 'jsonpath={.status.containerStatuses[0].state.waiting.reason}'
+$ actual=ErrImagePull
+$ [[ ErrImagePull == \I\m\a\g\e\P\u\l\l\B\a\c\k\O\f\f ]]
+$ sleep 3
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s14 get pod project-broken-pod -o 'jsonpath={.status.containerStatuses[0].state.waiting.reason}'
+$ actual=ErrImagePull
+$ [[ ErrImagePull == \I\m\a\g\e\P\u\l\l\B\a\c\k\O\f\f ]]
+$ sleep 3
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s14 get pod project-broken-pod -o 'jsonpath={.status.containerStatuses[0].state.waiting.reason}'
+$ actual=ErrImagePull
+$ [[ ErrImagePull == \I\m\a\g\e\P\u\l\l\B\a\c\k\O\f\f ]]
+$ sleep 3
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s14 get pod project-broken-pod -o 'jsonpath={.status.containerStatuses[0].state.waiting.reason}'
+$ actual=ErrImagePull
+$ [[ ErrImagePull == \I\m\a\g\e\P\u\l\l\B\a\c\k\O\f\f ]]
+$ sleep 3
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s14 get pod project-broken-pod -o 'jsonpath={.status.containerStatuses[0].state.waiting.reason}'
+$ actual=ImagePullBackOff
+$ [[ ImagePullBackOff == \I\m\a\g\e\P\u\l\l\B\a\c\k\O\f\f ]]
+$ return
+$ kubectl -n coursework-s14 describe pod project-broken-pod
+Name:             project-broken-pod
+Namespace:        coursework-s14
+Priority:         0
+Service Account:  default
+Node:             minikube/192.168.49.2
+Start Time:       Wed, 14 Oct 2026 17:36:31 +0000
+Labels:           <none>
+Annotations:      cni.projectcalico.org/containerID: 169bbafe9e06e121ba954472d90c2db27f654e47726a5f5f5e909ee65535ef29
+                  cni.projectcalico.org/podIP: 10.244.120.76/32
+                  cni.projectcalico.org/podIPs: 10.244.120.76/32
+Status:           Pending
+IP:               10.244.120.76
+IPs:
+  IP:  10.244.120.76
+Containers:
+  app:
+    Container ID:
+    Image:          nginx:this-tag-does-not-exist
+    Image ID:
+    Port:           <none>
+    Host Port:      <none>
+    State:          Waiting
+      Reason:       ImagePullBackOff
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-5rmxd (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
+Volumes:
+  kube-api-access-5rmxd:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason     Age               From               Message
+  ----     ------     ----              ----               -------
+  Normal   Scheduled  16s               default-scheduler  Successfully assigned coursework-s14/project-broken-pod to minikube
+  Warning  Failed     15s               kubelet            spec.containers{app}: Failed to pull image "nginx:this-tag-does-not-exist": rpc error: code = NotFound desc = failed to pull and unpack image "docker.io/library/nginx:this-tag-does-not-exist": failed to resolve reference "docker.io/library/nginx:this-tag-does-not-exist": docker.io/library/nginx:this-tag-does-not-exist: not found
+  Warning  Failed     15s               kubelet            spec.containers{app}: Error: ErrImagePull
+  Normal   BackOff    14s               kubelet            spec.containers{app}: Back-off pulling image "nginx:this-tag-does-not-exist"
+  Warning  Failed     14s               kubelet            spec.containers{app}: Error: ImagePullBackOff
+  Normal   Pulling    1s (x2 over 15s)  kubelet            spec.containers{app}: Pulling image "nginx:this-tag-does-not-exist"
+$ kubectl -n coursework-s14 set image pod/project-broken-pod app=nginx:stable-alpine
+pod/project-broken-pod image updated
+$ wait_ready project-broken-pod
+$ kubectl -n coursework-s14 wait --for=condition=Ready pod/project-broken-pod --timeout=240s
+pod/project-broken-pod condition met
+$ kubectl -n coursework-s14 get pod project-broken-pod -o wide
+NAME                 READY   STATUS    RESTARTS   AGE   IP              NODE       NOMINATED NODE   READINESS GATES
+project-broken-pod   1/1     Running   0          16s   10.244.120.76   minikube   <none>           <none>
+$ kubectl -n coursework-s14 apply -f session14-troubleshooting/mini-project/broken.yaml
+deployment.apps/broken-web created
+service/broken-web created
+$ sleep 15
+$ kubectl -n coursework-s14 get pods -l app=broken-web
+NAME                          READY   STATUS    RESTARTS   AGE
+broken-web-558c6bcdc5-55tf5   0/1     Running   0          15s
+$ kubectl -n coursework-s14 describe deployment broken-web
+Name:                   broken-web
+Namespace:              coursework-s14
+CreationTimestamp:      Wed, 14 Oct 2026 17:36:47 +0000
+Labels:                 <none>
+Annotations:            deployment.kubernetes.io/revision: 1
+Selector:               app=broken-web
+Replicas:               1 desired | 1 updated | 1 total | 0 available | 1 unavailable
+StrategyType:           RollingUpdate
+MinReadySeconds:        0
+RollingUpdateStrategy:  25% max unavailable, 25% max surge
+Pod Template:
+  Labels:  app=broken-web
+  Containers:
+   app:
+    Image:         nginx:stable-alpine
+    Port:          <none>
+    Host Port:     <none>
+    Readiness:     http-get http://:80/wrong-health-path delay=0s timeout=1s period=3s successThreshold=1 failureThreshold=3
+    Environment:   <none>
+    Mounts:        <none>
+  Volumes:         <none>
+  Node-Selectors:  <none>
+  Tolerations:     <none>
+Conditions:
+  Type           Status  Reason
+  ----           ------  ------
+  Available      False   MinimumReplicasUnavailable
+  Progressing    True    ReplicaSetUpdated
+OldReplicaSets:  <none>
+NewReplicaSet:   broken-web-558c6bcdc5 (1/1 replicas created)
+Events:
+  Type    Reason             Age   From                   Message
+  ----    ------             ----  ----                   -------
+  Normal  ScalingReplicaSet  15s   deployment-controller  Scaled up replica set broken-web-558c6bcdc5 from 0 to 1
+$ kubectl -n coursework-s14 describe pod -l app=broken-web
+Name:             broken-web-558c6bcdc5-55tf5
+Namespace:        coursework-s14
+Priority:         0
+Service Account:  default
+Node:             minikube/192.168.49.2
+Start Time:       Wed, 14 Oct 2026 17:36:47 +0000
+Labels:           app=broken-web
+                  pod-template-hash=558c6bcdc5
+Annotations:      cni.projectcalico.org/containerID: 5accd64f99c27f8aeef27854d764e858de1b35caae7d5826b0fa1a5561ce178a
+                  cni.projectcalico.org/podIP: 10.244.120.77/32
+                  cni.projectcalico.org/podIPs: 10.244.120.77/32
+Status:           Running
+IP:               10.244.120.77
+IPs:
+  IP:           10.244.120.77
+Controlled By:  ReplicaSet/broken-web-558c6bcdc5
+Containers:
+  app:
+    Container ID:   containerd://e719a927347e30804dedd162d9c5acf93559c9ef2099518ac42509dc6725a134
+    Image:          nginx:stable-alpine
+    Image ID:       docker.io/library/nginx@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94
+    Port:           <none>
+    Host Port:      <none>
+    State:          Running
+      Started:      Wed, 14 Oct 2026 17:36:48 +0000
+    Ready:          False
+    Restart Count:  0
+    Readiness:      http-get http://:80/wrong-health-path delay=0s timeout=1s period=3s successThreshold=1 failureThreshold=3
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-j4rpf (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
+Volumes:
+  kube-api-access-j4rpf:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason     Age               From               Message
+  ----     ------     ----              ----               -------
+  Normal   Scheduled  15s               default-scheduler  Successfully assigned coursework-s14/broken-web-558c6bcdc5-55tf5 to minikube
+  Normal   Pulled     14s               kubelet            spec.containers{app}: Container image "nginx:stable-alpine" already present on machine and can be accessed by the pod
+  Normal   Created    14s               kubelet            spec.containers{app}: Container created
+  Normal   Started    14s               kubelet            spec.containers{app}: Container started
+  Warning  Unhealthy  14s               kubelet            spec.containers{app}: Readiness probe failed: Get "http://10.244.120.77:80/wrong-health-path": dial tcp 10.244.120.77:80: connect: connection refused
+  Warning  Unhealthy  1s (x6 over 14s)  kubelet            spec.containers{app}: Readiness probe failed: HTTP probe failed with statuscode: 404
+$ kubectl -n coursework-s14 get service broken-web -o yaml
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"broken-web","namespace":"coursework-s14"},"spec":{"ports":[{"port":80,"targetPort":80}],"selector":{"app":"wrong-selector"}}}
+  creationTimestamp: "2026-10-14T17:36:47Z"
+  name: broken-web
+  namespace: coursework-s14
+  resourceVersion: "1118"
+  uid: 6dc87ad9-7622-4050-a2af-572861315737
+spec:
+  clusterIP: 10.105.24.252
+  clusterIPs:
+  - 10.105.24.252
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: wrong-selector
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+$ kubectl -n coursework-s14 get endpointslice -l kubernetes.io/service-name=broken-web -o yaml
+apiVersion: v1
+items:
+- addressType: IPv4
+  apiVersion: discovery.k8s.io/v1
+  endpoints: null
+  kind: EndpointSlice
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2026-10-14T17:36:47Z"
+    creationTimestamp: "2026-10-14T17:36:47Z"
+    generateName: broken-web-
+    generation: 1
+    labels:
+      endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+      kubernetes.io/service-name: broken-web
+    name: broken-web-vhh68
+    namespace: coursework-s14
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Service
+      name: broken-web
+      uid: 6dc87ad9-7622-4050-a2af-572861315737
+    resourceVersion: "1125"
+    uid: 7eff8953-cbc9-4224-b440-624ab44b7e24
+  ports: null
+kind: List
+metadata:
+  resourceVersion: ""
+$ echo 'Root causes: /wrong-health-path returns 404; Service selector does not match app label.'
+Root causes: /wrong-health-path returns 404; Service selector does not match app label.
+$ kubectl -n coursework-s14 apply -f session14-troubleshooting/mini-project/fixed.yaml
+deployment.apps/broken-web configured
+service/broken-web configured
+$ kubectl -n coursework-s14 rollout status deployment/broken-web --timeout=240s
+Waiting for deployment "broken-web" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "broken-web" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "broken-web" rollout to finish: 1 old replicas are pending termination...
+deployment "broken-web" successfully rolled out
+$ kubectl -n coursework-s14 get pods -l app=broken-web
+NAME                          READY   STATUS        RESTARTS   AGE
+broken-web-558c6bcdc5-55tf5   0/1     Terminating   0          17s
+broken-web-7ff5fff999-4gs4x   1/1     Running       0          1s
+$ kubectl -n coursework-s14 get endpointslice -l kubernetes.io/service-name=broken-web -o yaml
+apiVersion: v1
+items:
+- addressType: IPv4
+  apiVersion: discovery.k8s.io/v1
+  endpoints:
+  - addresses:
+    - 10.244.120.77
+    conditions:
+      ready: false
+      serving: false
+      terminating: true
+    nodeName: minikube
+    targetRef:
+      kind: Pod
+      name: broken-web-558c6bcdc5-55tf5
+      namespace: coursework-s14
+      uid: 92f3790f-50fb-4c09-b7fd-dd5fa0dbdd25
+  - addresses:
+    - 10.244.120.78
+    conditions:
+      ready: true
+      serving: true
+      terminating: false
+    nodeName: minikube
+    targetRef:
+      kind: Pod
+      name: broken-web-7ff5fff999-4gs4x
+      namespace: coursework-s14
+      uid: d47f0bc2-166b-42a4-be76-af2391fd4619
+  kind: EndpointSlice
+  metadata:
+    creationTimestamp: "2026-10-14T17:36:47Z"
+    generateName: broken-web-
+    generation: 5
+    labels:
+      endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+      kubernetes.io/service-name: broken-web
+    name: broken-web-vhh68
+    namespace: coursework-s14
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Service
+      name: broken-web
+      uid: 6dc87ad9-7622-4050-a2af-572861315737
+    resourceVersion: "1195"
+    uid: 7eff8953-cbc9-4224-b440-624ab44b7e24
+  ports:
+  - name: ""
+    port: 80
+    protocol: TCP
+kind: List
+metadata:
+  resourceVersion: ""
+$ kubectl -n coursework-s14 exec client -- wget -T 5 -qO- http://broken-web
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+html { color-scheme: light dark; }
+body { width: 35em; margin: 0 auto;
+font-family: Tahoma, Verdana, Arial, sans-serif; }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, nginx is successfully installed and working.
+Further configuration is required for the web server, reverse proxy,
+API gateway, load balancer, content cache, or other features.</p>
+
+<p>For online documentation and support please refer to
+<a href="https://nginx.org/">nginx.org</a>.<br/>
+To engage with the community please visit
+<a href="https://community.nginx.org/">community.nginx.org</a>.<br/>
+For enterprise grade support, professional services, additional
+security features and capabilities please refer to
+<a href="https://f5.com/nginx">f5.com/nginx</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>

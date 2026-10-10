@@ -1,0 +1,93 @@
+$ networking
+$ expect_error 'bad address' kubectl -n coursework-s14 exec client -- wget -T 3 -qO- http://wrong-service
+$ local 'expected=bad address'
+$ shift
+$ local result
+$$ kubectl -n coursework-s14 exec client -- wget -T 3 -qO- http://wrong-service
+$ result='wget: bad address '\''wrong-service'\''
+command terminated with exit code 1'
+$ printf '%s\n' 'wget: bad address '\''wrong-service'\''
+command terminated with exit code 1'
+wget: bad address 'wrong-service'
+command terminated with exit code 1
+$ [[ wget: bad address 'wrong-service'
+command terminated with exit code 1 == *\b\a\d\ \a\d\d\r\e\s\s* ]]
+$ kubectl -n coursework-s14 exec client -- nslookup web.coursework-s14.svc.cluster.local
+Server:		10.96.0.10
+Address:	10.96.0.10:53
+
+
+Name:	web.coursework-s14.svc.cluster.local
+Address: 10.97.207.149
+
+$ kubectl -n coursework-s14 apply -f session14-troubleshooting/labs/network-policy.yaml
+networkpolicy.networking.k8s.io/deny-web created
+$ sleep 5
+$ expect_error 'timed out' kubectl -n coursework-s14 exec client -- wget -T 3 -qO- http://web
+$ local 'expected=timed out'
+$ shift
+$ local result
+$$ kubectl -n coursework-s14 exec client -- wget -T 3 -qO- http://web
+$ result='wget: download timed out
+command terminated with exit code 1'
+$ printf '%s\n' 'wget: download timed out
+command terminated with exit code 1'
+wget: download timed out
+command terminated with exit code 1
+$ [[ wget: download timed out
+command terminated with exit code 1 == *\t\i\m\e\d\ \o\u\t* ]]
+$ kubectl -n coursework-s14 get networkpolicy -o yaml
+apiVersion: v1
+items:
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"NetworkPolicy","metadata":{"annotations":{},"name":"deny-web","namespace":"coursework-s14"},"spec":{"ingress":[],"podSelector":{"matchLabels":{"app":"web"}},"policyTypes":["Ingress"]}}
+    creationTimestamp: "2026-10-14T17:36:18Z"
+    generation: 1
+    name: deny-web
+    namespace: coursework-s14
+    resourceVersion: "1057"
+    uid: 29ec38e9-e586-400f-8fe3-d9ef4f5567c1
+  spec:
+    podSelector:
+      matchLabels:
+        app: web
+    policyTypes:
+    - Ingress
+kind: List
+metadata:
+  resourceVersion: ""
+$ kubectl -n coursework-s14 apply -f session14-troubleshooting/labs/network-policy-allow.yaml
+networkpolicy.networking.k8s.io/allow-client created
+$ sleep 5
+$ kubectl -n coursework-s14 exec client -- wget -T 5 -qO- http://web
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+html { color-scheme: light dark; }
+body { width: 35em; margin: 0 auto;
+font-family: Tahoma, Verdana, Arial, sans-serif; }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, nginx is successfully installed and working.
+Further configuration is required for the web server, reverse proxy,
+API gateway, load balancer, content cache, or other features.</p>
+
+<p>For online documentation and support please refer to
+<a href="https://nginx.org/">nginx.org</a>.<br/>
+To engage with the community please visit
+<a href="https://community.nginx.org/">community.nginx.org</a>.<br/>
+For enterprise grade support, professional services, additional
+security features and capabilities please refer to
+<a href="https://f5.com/nginx">f5.com/nginx</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>

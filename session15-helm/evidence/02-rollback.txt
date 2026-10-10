@@ -1,0 +1,94 @@
+$ rollback
+$ helm upgrade notes session15-helm/notes-chart -n coursework-s15 --set replicaCount=3 --set 'message=Notes version two' --wait --timeout=240s
+W1014 17:33:26.144447    7513 warnings.go:70] unknown field "metadata.APP_NAME"
+W1014 17:33:26.144464    7513 warnings.go:70] unknown field "metadata.ENVIRONMENT"
+Release "notes" has been upgraded. Happy Helming!
+NAME: notes
+LAST DEPLOYED: Wed Oct 14 17:33:26 2026
+NAMESPACE: coursework-s15
+STATUS: deployed
+REVISION: 2
+TEST SUITE: None
+$ verify_release notes 'Notes version two' 3
+$ local release=notes 'expected=Notes version two' replicas=3
+$ kubectl -n coursework-s15 rollout status deployment/notes --timeout=240s
+deployment "notes" successfully rolled out
+$$ kubectl -n coursework-s15 get deployment notes -o 'jsonpath={.status.readyReplicas}'
+$ count=3
+$ test 3 = 3
+$ kubectl -n coursework-s15 run verify-notes --rm -i --restart=Never --image=busybox:1.36 --command -- sh -c 'wget -qO- http://notes | grep '\''Notes version two'\'''
+Notes version two
+All commands and output from this session will be recorded in container logs, including credentials and sensitive information passed through the command prompt.
+If you don't see a command prompt, try pressing enter.
+warning: couldn't attach to pod/verify-notes, falling back to streaming logs: Internal error occurred: Internal error occurred: error attaching to container: container is in CONTAINER_EXITED state
+Notes version two
+pod "verify-notes" deleted from coursework-s15 namespace
+$ kubectl -n coursework-s15 get pods -l app=notes
+NAME                    READY   STATUS    RESTARTS   AGE
+notes-6ff7d879c-bvqbn   1/1     Running   0          5s
+notes-6ff7d879c-x267b   1/1     Running   0          4s
+notes-6ff7d879c-x9nqp   1/1     Running   0          6s
+$ helm upgrade notes session15-helm/notes-chart -n coursework-s15 --set replicaCount=1 --set 'message=Notes version three' --wait --timeout=240s
+W1014 17:33:32.190856    9050 warnings.go:70] unknown field "metadata.APP_NAME"
+W1014 17:33:32.190876    9050 warnings.go:70] unknown field "metadata.ENVIRONMENT"
+Release "notes" has been upgraded. Happy Helming!
+NAME: notes
+LAST DEPLOYED: Wed Oct 14 17:33:32 2026
+NAMESPACE: coursework-s15
+STATUS: deployed
+REVISION: 3
+TEST SUITE: None
+$ verify_release notes 'Notes version three' 1
+$ local release=notes 'expected=Notes version three' replicas=1
+$ kubectl -n coursework-s15 rollout status deployment/notes --timeout=240s
+deployment "notes" successfully rolled out
+$$ kubectl -n coursework-s15 get deployment notes -o 'jsonpath={.status.readyReplicas}'
+$ count=1
+$ test 1 = 1
+$ kubectl -n coursework-s15 run verify-notes --rm -i --restart=Never --image=busybox:1.36 --command -- sh -c 'wget -qO- http://notes | grep '\''Notes version three'\'''
+Notes version three
+All commands and output from this session will be recorded in container logs, including credentials and sensitive information passed through the command prompt.
+If you don't see a command prompt, try pressing enter.
+warning: couldn't attach to pod/verify-notes, falling back to streaming logs: Internal error occurred: Internal error occurred: error attaching to container: container is in CONTAINER_EXITED state
+Notes version three
+pod "verify-notes" deleted from coursework-s15 namespace
+$ kubectl -n coursework-s15 get pods -l app=notes
+NAME                     READY   STATUS    RESTARTS   AGE
+notes-669558d7c9-qptm8   1/1     Running   0          4s
+$ helm rollback notes 2 -n coursework-s15 --wait --timeout=240s
+W1014 17:33:37.047667    9942 warnings.go:70] unknown field "metadata.APP_NAME"
+W1014 17:33:37.047684    9942 warnings.go:70] unknown field "metadata.ENVIRONMENT"
+Rollback was a success! Happy Helming!
+$ verify_release notes 'Notes version two' 3
+$ local release=notes 'expected=Notes version two' replicas=3
+$ kubectl -n coursework-s15 rollout status deployment/notes --timeout=240s
+deployment "notes" successfully rolled out
+$$ kubectl -n coursework-s15 get deployment notes -o 'jsonpath={.status.readyReplicas}'
+$ count=3
+$ test 3 = 3
+$ kubectl -n coursework-s15 run verify-notes --rm -i --restart=Never --image=busybox:1.36 --command -- sh -c 'wget -qO- http://notes | grep '\''Notes version two'\'''
+Notes version two
+All commands and output from this session will be recorded in container logs, including credentials and sensitive information passed through the command prompt.
+If you don't see a command prompt, try pressing enter.
+warning: couldn't attach to pod/verify-notes, falling back to streaming logs: unable to upgrade connection: container verify-notes not found in pod verify-notes_coursework-s15
+Notes version two
+pod "verify-notes" deleted from coursework-s15 namespace
+$ kubectl -n coursework-s15 get pods -l app=notes
+NAME                    READY   STATUS    RESTARTS   AGE
+notes-6ff7d879c-7gh2s   1/1     Running   0          4s
+notes-6ff7d879c-pwz6l   1/1     Running   0          5s
+notes-6ff7d879c-xhl9c   1/1     Running   0          6s
+$ helm get values notes -n coursework-s15
+USER-SUPPLIED VALUES:
+message: Notes version two
+replicaCount: 3
+$ helm history notes -n coursework-s15
+REVISION	UPDATED                 	STATUS    	CHART            	APP VERSION	DESCRIPTION
+1       	Wed Oct 14 17:33:17 2026	superseded	notes-chart-0.1.0	1.0        	Install complete
+2       	Wed Oct 14 17:33:26 2026	superseded	notes-chart-0.1.0	1.0        	Upgrade complete
+3       	Wed Oct 14 17:33:32 2026	superseded	notes-chart-0.1.0	1.0        	Upgrade complete
+4       	Wed Oct 14 17:33:37 2026	deployed  	notes-chart-0.1.0	1.0        	Rollback to 2
+$ helm uninstall notes -n coursework-s15 --wait
+release "notes" uninstalled
+$ helm list -n coursework-s15
+NAME	NAMESPACE	REVISION	UPDATED	STATUS	CHART	APP VERSION

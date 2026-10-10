@@ -1,0 +1,134 @@
+$ mini_project
+$ kubectl -n coursework-s13 apply -f session13-storage-hpa-probes/03-mini-project/app.yaml
+persistentvolumeclaim/notes-data created
+deployment.apps/notes-app created
+service/notes-app created
+horizontalpodautoscaler.autoscaling/notes-app created
+$ kubectl -n coursework-s13 rollout status deployment/notes-app --timeout=240s
+Waiting for deployment "notes-app" rollout to finish: 0 of 2 updated replicas are available...
+Waiting for deployment "notes-app" rollout to finish: 1 of 2 updated replicas are available...
+deployment "notes-app" successfully rolled out
+$ kubectl -n coursework-s13 get pvc,pods,service,hpa
+NAME                                STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS        VOLUMEATTRIBUTESCLASS   AGE
+persistentvolumeclaim/notes-data    Bound    pvc-3718c82a-a1c1-4018-8d31-56fce4b4bb05   500Mi      RWO            standard            <unset>                 5s
+persistentvolumeclaim/static-data   Bound    coursework-s13-pv                          128Mi      RWO            coursework-static   <unset>                 3m58s
+
+NAME                             READY   STATUS    RESTARTS   AGE
+pod/cpu-demo-74d9f77446-k7c6p    1/1     Running   0          2m39s
+pod/emptydir-demo                1/1     Running   0          4m33s
+pod/hostpath-demo                1/1     Running   0          3m59s
+pod/notes-app-867597dd88-89wb7   1/1     Running   0          5s
+pod/notes-app-867597dd88-9gqnj   1/1     Running   0          5s
+pod/persistent-demo              1/1     Running   0          3m13s
+
+NAME                TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
+service/cpu-demo    ClusterIP   10.101.79.98     <none>        80/TCP    2m39s
+service/notes-app   ClusterIP   10.108.218.179   <none>        80/TCP    5s
+
+NAME                                            REFERENCE              TARGETS              MINPODS   MAXPODS   REPLICAS   AGE
+horizontalpodautoscaler.autoscaling/cpu-demo    Deployment/cpu-demo    cpu: 1%/30%          1         4         4          2m39s
+horizontalpodautoscaler.autoscaling/notes-app   Deployment/notes-app   cpu: <unknown>/50%   2         5         2          5s
+$ kubectl -n coursework-s13 exec deployment/notes-app -- sh -c 'echo notes-marker > /usr/share/nginx/html/marker.txt'
+Defaulted container "app" out of: app, initialize (init)
+$$ kubectl -n coursework-s13 get pod -l app=notes-app -o 'jsonpath={.items[0].metadata.name}'
+$ oldpod=notes-app-867597dd88-89wb7
+$ kubectl -n coursework-s13 delete pod notes-app-867597dd88-89wb7
+pod "notes-app-867597dd88-89wb7" deleted from coursework-s13 namespace
+$ kubectl -n coursework-s13 rollout status deployment/notes-app --timeout=240s
+deployment "notes-app" successfully rolled out
+$ kubectl -n coursework-s13 exec deployment/notes-app -- grep notes-marker /usr/share/nginx/html/marker.txt
+Defaulted container "app" out of: app, initialize (init)
+notes-marker
+$ kubectl -n coursework-s13 get deployment notes-app -o 'jsonpath={.spec.template.spec.containers[0].startupProbe}{"\n"}{.spec.template.spec.containers[0].readinessProbe}{"\n"}{.spec.template.spec.containers[0].livenessProbe}{"\n"}'
+{"failureThreshold":30,"httpGet":{"path":"/","port":80,"scheme":"HTTP"},"periodSeconds":2,"successThreshold":1,"timeoutSeconds":1}
+{"failureThreshold":1,"httpGet":{"path":"/","port":80,"scheme":"HTTP"},"periodSeconds":2,"successThreshold":1,"timeoutSeconds":1}
+{"failureThreshold":6,"httpGet":{"path":"/","port":80,"scheme":"HTTP"},"periodSeconds":5,"successThreshold":1,"timeoutSeconds":1}
+$ kubectl -n coursework-s13 exec deployment/notes-app -- mv /usr/share/nginx/html/index.html /usr/share/nginx/html/index.saved
+Defaulted container "app" out of: app, initialize (init)
+$$ seq 1 12
+$ for attempt in $(seq 1 12)
+$$ kubectl -n coursework-s13 get pod -l app=notes-app -o 'jsonpath={.items[0].status.conditions[?(@.type=="Ready")].status}'
+$ ready=True
+$ [[ True == False ]]
+$ sleep 2
+$ for attempt in $(seq 1 12)
+$$ kubectl -n coursework-s13 get pod -l app=notes-app -o 'jsonpath={.items[0].status.conditions[?(@.type=="Ready")].status}'
+$ ready=False
+$ [[ False == False ]]
+$ break
+$ kubectl -n coursework-s13 get pods -l app=notes-app
+NAME                         READY   STATUS    RESTARTS   AGE
+notes-app-867597dd88-9gqnj   0/1     Running   0          11s
+notes-app-867597dd88-q8hvx   0/1     Running   0          5s
+$$ kubectl -n coursework-s13 get pod -l app=notes-app -o 'jsonpath={.items[0].status.conditions[?(@.type=="Ready")].status}'
+$ ready=False
+$ test False = False
+$ kubectl -n coursework-s13 get endpointslice -l kubernetes.io/service-name=notes-app -o yaml
+apiVersion: v1
+items:
+- addressType: IPv4
+  apiVersion: discovery.k8s.io/v1
+  endpoints:
+  - addresses:
+    - 10.244.120.80
+    conditions:
+      ready: false
+      serving: false
+      terminating: false
+    nodeName: minikube
+    targetRef:
+      kind: Pod
+      name: notes-app-867597dd88-9gqnj
+      namespace: coursework-s13
+      uid: 931633ca-c75c-4466-b199-4754df316a96
+  - addresses:
+    - 10.244.120.82
+    conditions:
+      ready: false
+      serving: false
+      terminating: false
+    nodeName: minikube
+    targetRef:
+      kind: Pod
+      name: notes-app-867597dd88-q8hvx
+      namespace: coursework-s13
+      uid: 5ca4ef60-bb00-4103-80f6-6e72bdbfd583
+  kind: EndpointSlice
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2026-10-14T17:38:28Z"
+    creationTimestamp: "2026-10-14T17:38:18Z"
+    generateName: notes-app-
+    generation: 11
+    labels:
+      endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io
+      kubernetes.io/service-name: notes-app
+    name: notes-app-sxqp9
+    namespace: coursework-s13
+    ownerReferences:
+    - apiVersion: v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Service
+      name: notes-app
+      uid: 357b30bc-05e0-47cb-8758-eef82e8688c6
+    resourceVersion: "1536"
+    uid: 252b959e-f05c-402a-9aec-02c67c9ad632
+  ports:
+  - name: ""
+    port: 80
+    protocol: TCP
+kind: List
+metadata:
+  resourceVersion: ""
+$ kubectl -n coursework-s13 exec deployment/notes-app -- mv /usr/share/nginx/html/index.saved /usr/share/nginx/html/index.html
+Defaulted container "app" out of: app, initialize (init)
+$ kubectl -n coursework-s13 wait --for=condition=Ready pod -l app=notes-app --timeout=120s
+pod/notes-app-867597dd88-9gqnj condition met
+pod/notes-app-867597dd88-q8hvx condition met
+$ kubectl -n coursework-s13 get pods -l app=notes-app
+NAME                         READY   STATUS    RESTARTS   AGE
+notes-app-867597dd88-9gqnj   1/1     Running   0          12s
+notes-app-867597dd88-q8hvx   1/1     Running   0          6s
+$ echo 'Readiness failure and recovery verified.'
+Readiness failure and recovery verified.

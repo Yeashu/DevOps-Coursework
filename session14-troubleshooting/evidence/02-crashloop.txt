@@ -1,0 +1,99 @@
+$ crash
+$ kubectl -n coursework-s14 apply -f session14-troubleshooting/labs/broken-crash.yaml
+pod/crash-demo created
+$ wait_reason crash-demo CrashLoopBackOff
+$ local name=crash-demo reason=CrashLoopBackOff
+$$ seq 1 60
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s14 get pod crash-demo -o 'jsonpath={.status.containerStatuses[0].state.waiting.reason}'
+$ actual=ContainerCreating
+$ [[ ContainerCreating == \C\r\a\s\h\L\o\o\p\B\a\c\k\O\f\f ]]
+$ sleep 3
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s14 get pod crash-demo -o 'jsonpath={.status.containerStatuses[0].state.waiting.reason}'
+$ actual=
+$ [[ '' == \C\r\a\s\h\L\o\o\p\B\a\c\k\O\f\f ]]
+$ sleep 3
+$ for attempt in $(seq 1 60)
+$$ kubectl -n coursework-s14 get pod crash-demo -o 'jsonpath={.status.containerStatuses[0].state.waiting.reason}'
+$ actual=CrashLoopBackOff
+$ [[ CrashLoopBackOff == \C\r\a\s\h\L\o\o\p\B\a\c\k\O\f\f ]]
+$ return
+$ kubectl -n coursework-s14 get pod crash-demo
+NAME         READY   STATUS             RESTARTS     AGE
+crash-demo   0/1     CrashLoopBackOff   1 (5s ago)   7s
+$ kubectl -n coursework-s14 logs crash-demo --previous
+intentional startup failure
+$ kubectl -n coursework-s14 describe pod crash-demo
+Name:             crash-demo
+Namespace:        coursework-s14
+Priority:         0
+Service Account:  default
+Node:             minikube/192.168.49.2
+Start Time:       Wed, 14 Oct 2026 17:34:10 +0000
+Labels:           app=crash-demo
+Annotations:      cni.projectcalico.org/containerID: 3d3932c3b5f9dd831a21648fd4234ce8ddfea3fe1f8b97a5ff312aaada329641
+                  cni.projectcalico.org/podIP: 10.244.120.70/32
+                  cni.projectcalico.org/podIPs: 10.244.120.70/32
+Status:           Running
+IP:               10.244.120.70
+IPs:
+  IP:  10.244.120.70
+Containers:
+  app:
+    Container ID:  containerd://e0c76d7031e491733c87f63fcc85d99d6c09460726c490e618eb4c43bf1591ed
+    Image:         busybox:1.36
+    Image ID:      docker.io/library/busybox@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      sh
+      -c
+      echo "intentional startup failure"; exit 1
+    State:          Waiting
+      Reason:       CrashLoopBackOff
+    Last State:     Terminated
+      Reason:       Error
+      Exit Code:    1
+      Started:      Wed, 14 Oct 2026 17:34:12 +0000
+      Finished:     Wed, 14 Oct 2026 17:34:12 +0000
+    Ready:          False
+    Restart Count:  1
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-zdc96 (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
+Volumes:
+  kube-api-access-zdc96:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason     Age              From               Message
+  ----     ------     ----             ----               -------
+  Normal   Scheduled  7s               default-scheduler  Successfully assigned coursework-s14/crash-demo to minikube
+  Normal   Pulled     5s (x2 over 6s)  kubelet            spec.containers{app}: Container image "busybox:1.36" already present on machine and can be accessed by the pod
+  Normal   Created    5s (x2 over 6s)  kubelet            spec.containers{app}: Container created
+  Normal   Started    5s (x2 over 6s)  kubelet            spec.containers{app}: Container started
+  Warning  BackOff    3s (x2 over 4s)  kubelet            spec.containers{app}: Back-off restarting failed container app in pod crash-demo_coursework-s14(8863c6d7-71c7-434c-abaa-a2136a028cff)
+$ kubectl -n coursework-s14 delete pod crash-demo
+pod "crash-demo" deleted from coursework-s14 namespace
+$ kubectl -n coursework-s14 apply -f session14-troubleshooting/labs/fixed-crash.yaml
+pod/crash-demo created
+$ wait_ready crash-demo
+$ kubectl -n coursework-s14 wait --for=condition=Ready pod/crash-demo --timeout=240s
+pod/crash-demo condition met
+$ kubectl -n coursework-s14 logs crash-demo
+application started

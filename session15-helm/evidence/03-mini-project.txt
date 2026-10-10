@@ -1,0 +1,87 @@
+$ mini_project
+$ helm install notes-project session15-helm/notes-chart -n coursework-s15 --wait --timeout=240s
+W1014 17:33:43.449475   11653 warnings.go:70] unknown field "metadata.APP_NAME"
+W1014 17:33:43.449493   11653 warnings.go:70] unknown field "metadata.ENVIRONMENT"
+NAME: notes-project
+LAST DEPLOYED: Wed Oct 14 17:33:43 2026
+NAMESPACE: coursework-s15
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+$ verify_release notes-project 'Notes version one' 1
+$ local release=notes-project 'expected=Notes version one' replicas=1
+$ kubectl -n coursework-s15 rollout status deployment/notes-project --timeout=240s
+deployment "notes-project" successfully rolled out
+$$ kubectl -n coursework-s15 get deployment notes-project -o 'jsonpath={.status.readyReplicas}'
+$ count=1
+$ test 1 = 1
+$ kubectl -n coursework-s15 run verify-notes-project --rm -i --restart=Never --image=busybox:1.36 --command -- sh -c 'wget -qO- http://notes-project | grep '\''Notes version one'\'''
+Notes version one
+All commands and output from this session will be recorded in container logs, including credentials and sensitive information passed through the command prompt.
+If you don't see a command prompt, try pressing enter.
+warning: couldn't attach to pod/verify-notes-project, falling back to streaming logs: Internal error occurred: Internal error occurred: error attaching to container: container is in CONTAINER_EXITED state
+Notes version one
+pod "verify-notes-project" deleted from coursework-s15 namespace
+$ kubectl -n coursework-s15 get pods -l app=notes-project
+NAME                             READY   STATUS    RESTARTS   AGE
+notes-project-5744cb4d74-lzgkt   1/1     Running   0          5s
+$ helm upgrade notes-project session15-helm/notes-chart -n coursework-s15 -f session15-helm/notes-chart/values-prod.yaml --set 'message=Project version two' --wait --timeout=240s
+W1014 17:33:48.234097   13209 warnings.go:70] unknown field "metadata.APP_NAME"
+W1014 17:33:48.234116   13209 warnings.go:70] unknown field "metadata.ENVIRONMENT"
+Release "notes-project" has been upgraded. Happy Helming!
+NAME: notes-project
+LAST DEPLOYED: Wed Oct 14 17:33:48 2026
+NAMESPACE: coursework-s15
+STATUS: deployed
+REVISION: 2
+TEST SUITE: None
+$ verify_release notes-project 'Project version two' 3
+$ local release=notes-project 'expected=Project version two' replicas=3
+$ kubectl -n coursework-s15 rollout status deployment/notes-project --timeout=240s
+deployment "notes-project" successfully rolled out
+$$ kubectl -n coursework-s15 get deployment notes-project -o 'jsonpath={.status.readyReplicas}'
+$ count=3
+$ test 3 = 3
+$ kubectl -n coursework-s15 run verify-notes-project --rm -i --restart=Never --image=busybox:1.36 --command -- sh -c 'wget -qO- http://notes-project | grep '\''Project version two'\'''
+Project version two
+All commands and output from this session will be recorded in container logs, including credentials and sensitive information passed through the command prompt.
+If you don't see a command prompt, try pressing enter.
+warning: couldn't attach to pod/verify-notes-project, falling back to streaming logs: unable to upgrade connection: container verify-notes-project not found in pod verify-notes-project_coursework-s15
+Project version two
+pod "verify-notes-project" deleted from coursework-s15 namespace
+$ kubectl -n coursework-s15 get pods -l app=notes-project
+NAME                             READY   STATUS    RESTARTS   AGE
+notes-project-7ff57659d6-2hd2x   1/1     Running   0          5s
+notes-project-7ff57659d6-m992d   1/1     Running   0          6s
+notes-project-7ff57659d6-mw8n6   1/1     Running   0          7s
+$ kubectl -n coursework-s15 exec deployment/notes-project -- printenv APP_NAME ENVIRONMENT
+notes-app
+production
+$ helm rollback notes-project 1 -n coursework-s15 --wait --timeout=240s
+W1014 17:33:55.222921   14827 warnings.go:70] unknown field "metadata.APP_NAME"
+W1014 17:33:55.222939   14827 warnings.go:70] unknown field "metadata.ENVIRONMENT"
+Rollback was a success! Happy Helming!
+$ verify_release notes-project 'Notes version one' 1
+$ local release=notes-project 'expected=Notes version one' replicas=1
+$ kubectl -n coursework-s15 rollout status deployment/notes-project --timeout=240s
+deployment "notes-project" successfully rolled out
+$$ kubectl -n coursework-s15 get deployment notes-project -o 'jsonpath={.status.readyReplicas}'
+$ count=1
+$ test 1 = 1
+$ kubectl -n coursework-s15 run verify-notes-project --rm -i --restart=Never --image=busybox:1.36 --command -- sh -c 'wget -qO- http://notes-project | grep '\''Notes version one'\'''
+Notes version one
+All commands and output from this session will be recorded in container logs, including credentials and sensitive information passed through the command prompt.
+If you don't see a command prompt, try pressing enter.
+warning: couldn't attach to pod/verify-notes-project, falling back to streaming logs: unable to upgrade connection: container verify-notes-project not found in pod verify-notes-project_coursework-s15
+Notes version one
+pod "verify-notes-project" deleted from coursework-s15 namespace
+$ kubectl -n coursework-s15 get pods -l app=notes-project
+NAME                             READY   STATUS    RESTARTS   AGE
+notes-project-5744cb4d74-kr66n   1/1     Running   0          4s
+$ helm history notes-project -n coursework-s15
+REVISION	UPDATED                 	STATUS    	CHART            	APP VERSION	DESCRIPTION
+1       	Wed Oct 14 17:33:43 2026	superseded	notes-chart-0.1.0	1.0        	Install complete
+2       	Wed Oct 14 17:33:48 2026	superseded	notes-chart-0.1.0	1.0        	Upgrade complete
+3       	Wed Oct 14 17:33:55 2026	deployed  	notes-chart-0.1.0	1.0        	Rollback to 1
+$ helm uninstall notes-project -n coursework-s15 --wait
+release "notes-project" uninstalled

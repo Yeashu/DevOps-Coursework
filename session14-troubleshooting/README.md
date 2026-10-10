@@ -61,3 +61,65 @@ The [broken image Pod](mini-project/broken-image.yaml) requests a tag that does 
 | Why no Service endpoints? | Selectors match no Pods, Pods are unready, or the backend has not been configured. |
 | Selector versus labels? | The selector identifies Pods whose labels match the Service's required key/value pairs. |
 | What is Kubernetes DNS? | Cluster name resolution that lets applications find Services and selected Pod identities. |
+
+## Recorded execution evidence
+
+These PNGs render the saved output of real commands. Each image links to its complete transcript.
+
+![01-commands, page 1](screenshots/01-commands-01.png)
+
+![01-commands, page 2](screenshots/01-commands-02.png)
+
+![01-commands, page 3](screenshots/01-commands-03.png)
+
+![01-commands, page 4](screenshots/01-commands-04.png)
+
+[Complete commands and output: 01-commands.txt](evidence/01-commands.txt)
+
+![02-crashloop, page 1](screenshots/02-crashloop-01.png)
+
+![02-crashloop, page 2](screenshots/02-crashloop-02.png)
+
+[Complete commands and output: 02-crashloop.txt](evidence/02-crashloop.txt)
+
+![03-image-pull, page 1](screenshots/03-image-pull-01.png)
+
+![03-image-pull, page 2](screenshots/03-image-pull-02.png)
+
+[Complete commands and output: 03-image-pull.txt](evidence/03-image-pull.txt)
+
+![04-scheduling-configuration, page 1](screenshots/04-scheduling-configuration-01.png)
+
+![04-scheduling-configuration, page 2](screenshots/04-scheduling-configuration-02.png)
+
+![04-scheduling-configuration, page 3](screenshots/04-scheduling-configuration-03.png)
+
+![04-scheduling-configuration, page 4](screenshots/04-scheduling-configuration-04.png)
+
+![04-scheduling-configuration, page 5](screenshots/04-scheduling-configuration-05.png)
+
+[Complete commands and output: 04-scheduling-configuration.txt](evidence/04-scheduling-configuration.txt)
+
+![05-networking-dns, page 1](screenshots/05-networking-dns-01.png)
+
+![05-networking-dns, page 2](screenshots/05-networking-dns-02.png)
+
+[Complete commands and output: 05-networking-dns.txt](evidence/05-networking-dns.txt)
+
+![06-mini-project, page 1](screenshots/06-mini-project-01.png)
+
+![06-mini-project, page 2](screenshots/06-mini-project-02.png)
+
+![06-mini-project, page 3](screenshots/06-mini-project-03.png)
+
+![06-mini-project, page 4](screenshots/06-mini-project-04.png)
+
+![06-mini-project, page 5](screenshots/06-mini-project-05.png)
+
+![06-mini-project, page 6](screenshots/06-mini-project-06.png)
+
+![06-mini-project, page 7](screenshots/06-mini-project-07.png)
+
+[Complete commands and output: 06-mini-project.txt](evidence/06-mini-project.txt)
+
+[Recorded lab execution](https://github.com/Yeashu/DevOps-Coursework/actions/runs/38607298163/job/116001343387)

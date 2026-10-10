@@ -35,3 +35,13 @@ Providers implement resource APIs. Variables parameterize the configuration. Res
 The mock-provider tests verify configured network ranges, the private-address policy and IMDSv2. They do not call AWS. The transcripts contain the exact verification commands and results.
 
 [Terraform dependencies](https://developer.hashicorp.com/terraform/language/resources/behavior) · [State](https://developer.hashicorp.com/terraform/language/state)
+
+## Recorded execution evidence
+
+These PNGs render the saved output of real commands. Each image links to its complete transcript.
+
+![01-terraform-verification, page 1](screenshots/01-terraform-verification-01.png)
+
+[Complete commands and output: 01-terraform-verification.txt](evidence/01-terraform-verification.txt)
+
+[Recorded lab execution](https://github.com/Yeashu/DevOps-Coursework/actions/runs/38607298163/job/116001343320)

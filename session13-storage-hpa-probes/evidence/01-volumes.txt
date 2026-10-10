@@ -1,0 +1,78 @@
+$ volumes
+$ kubectl -n coursework-s13 apply -f session13-storage-hpa-probes/01-kubernetes-volumes/emptydir-demo.yaml
+pod/emptydir-demo created
+$ wait_ready emptydir-demo
+$ kubectl -n coursework-s13 wait --for=condition=Ready pod/emptydir-demo --timeout=240s
+pod/emptydir-demo condition met
+$ kubectl -n coursework-s13 exec emptydir-demo -- sh -c 'echo emptydir-marker > /data/marker; cat /data/marker'
+emptydir-marker
+$ kubectl -n coursework-s13 delete pod emptydir-demo --wait=true
+pod "emptydir-demo" deleted from coursework-s13 namespace
+$ kubectl -n coursework-s13 apply -f session13-storage-hpa-probes/01-kubernetes-volumes/emptydir-demo.yaml
+pod/emptydir-demo created
+$ wait_ready emptydir-demo
+$ kubectl -n coursework-s13 wait --for=condition=Ready pod/emptydir-demo --timeout=240s
+pod/emptydir-demo condition met
+$ kubectl -n coursework-s13 exec emptydir-demo -- sh -c 'test ! -f /data/marker && echo "emptyDir marker disappeared with old Pod"'
+emptyDir marker disappeared with old Pod
+$ kubectl -n coursework-s13 apply -f session13-storage-hpa-probes/01-kubernetes-volumes/hostpath-demo.yaml
+pod/hostpath-demo created
+$ wait_ready hostpath-demo
+$ kubectl -n coursework-s13 wait --for=condition=Ready pod/hostpath-demo --timeout=240s
+pod/hostpath-demo condition met
+$ kubectl -n coursework-s13 exec hostpath-demo -- sh -c 'echo hostpath-marker > /data/marker'
+$ kubectl -n coursework-s13 delete pod hostpath-demo --wait=true
+pod "hostpath-demo" deleted from coursework-s13 namespace
+$ kubectl -n coursework-s13 apply -f session13-storage-hpa-probes/01-kubernetes-volumes/hostpath-demo.yaml
+pod/hostpath-demo created
+$ wait_ready hostpath-demo
+$ kubectl -n coursework-s13 wait --for=condition=Ready pod/hostpath-demo --timeout=240s
+pod/hostpath-demo condition met
+$ kubectl -n coursework-s13 exec hostpath-demo -- sh -c 'grep hostpath-marker /data/marker'
+hostpath-marker
+$ kubectl -n coursework-s13 apply -f session13-storage-hpa-probes/01-kubernetes-volumes/static-storage.yaml
+persistentvolume/coursework-s13-pv created
+persistentvolumeclaim/static-data created
+pod/persistent-demo created
+$ wait_ready persistent-demo
+$ kubectl -n coursework-s13 wait --for=condition=Ready pod/persistent-demo --timeout=240s
+pod/persistent-demo condition met
+$ kubectl get pv coursework-s13-pv
+NAME                CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                        STORAGECLASS        VOLUMEATTRIBUTESCLASS   REASON   AGE
+coursework-s13-pv   128Mi      RWO            Retain           Bound    coursework-s13/static-data   coursework-static   <unset>                          13s
+$ kubectl -n coursework-s13 get pvc static-data
+NAME          STATUS   VOLUME              CAPACITY   ACCESS MODES   STORAGECLASS        VOLUMEATTRIBUTESCLASS   AGE
+static-data   Bound    coursework-s13-pv   128Mi      RWO            coursework-static   <unset>                 13s
+$ kubectl -n coursework-s13 exec persistent-demo -- sh -c 'echo persistent-marker > /data/marker'
+$ kubectl -n coursework-s13 delete pod persistent-demo --wait=true
+pod "persistent-demo" deleted from coursework-s13 namespace
+$ kubectl -n coursework-s13 apply -f session13-storage-hpa-probes/01-kubernetes-volumes/static-storage.yaml
+persistentvolume/coursework-s13-pv unchanged
+persistentvolumeclaim/static-data unchanged
+pod/persistent-demo created
+$ wait_ready persistent-demo
+$ kubectl -n coursework-s13 wait --for=condition=Ready pod/persistent-demo --timeout=240s
+pod/persistent-demo condition met
+$ kubectl -n coursework-s13 exec persistent-demo -- grep persistent-marker /data/marker
+persistent-marker
+$ kubectl get storageclass -o wide
+NAME                 PROVISIONER                RECLAIMPOLICY   VOLUMEBINDINGMODE   ALLOWVOLUMEEXPANSION   AGE
+standard (default)   k8s.io/minikube-hostpath   Delete          Immediate           false                  3m23s
+$ kubectl -n coursework-s13 apply -f session13-storage-hpa-probes/01-kubernetes-volumes/dynamic-storage.yaml
+persistentvolumeclaim/dynamic-data created
+pod/dynamic-demo created
+$ wait_ready dynamic-demo
+$ kubectl -n coursework-s13 wait --for=condition=Ready pod/dynamic-demo --timeout=240s
+pod/dynamic-demo condition met
+$$ kubectl -n coursework-s13 get pvc dynamic-data -o 'jsonpath={.spec.volumeName}'
+$ dynamic_pv=pvc-2a8d3c54-fd8d-42b8-82fa-41c5c1ac3fd9
+$ kubectl get pv pvc-2a8d3c54-fd8d-42b8-82fa-41c5c1ac3fd9 -o wide
+NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                         STORAGECLASS   VOLUMEATTRIBUTESCLASS   REASON   AGE   VOLUMEMODE
+pvc-2a8d3c54-fd8d-42b8-82fa-41c5c1ac3fd9   128Mi      RWO            Delete           Bound    coursework-s13/dynamic-data   standard       <unset>                          0s    Filesystem
+$ kubectl -n coursework-s13 delete pod dynamic-demo
+pod "dynamic-demo" deleted from coursework-s13 namespace
+$ kubectl -n coursework-s13 delete pvc dynamic-data
+persistentvolumeclaim "dynamic-data" deleted from coursework-s13 namespace
+$ kubectl wait --for=delete pv/pvc-2a8d3c54-fd8d-42b8-82fa-41c5c1ac3fd9 --timeout=120s
+$ echo 'Dynamic Delete-policy PV removed after claim deletion.'
+Dynamic Delete-policy PV removed after claim deletion.
